@@ -2,8 +2,9 @@
 
 class RiverProblem:
     
-    def __init__(self, grid_size, dead_end=True) -> None:
+    def __init__(self, grid_size, goal_state, dead_end=True) -> None:
         self._t_row, self._t_col = grid_size[0], grid_size[1]
+        self._goal_state = goal_state
         self._dead_end = dead_end
     
     def build_block_type(self):
@@ -25,6 +26,8 @@ class RiverProblem:
                 
         for r in range(0, self._t_row): block_type[r] = dict(sorted(block_type[r].items()))
         
+        block_type[self._goal_state] = 'goal'
+
         return block_type
 
     def build_default_actions_transition_dictionary(self, num_actions):
@@ -66,7 +69,6 @@ class RiverProblem:
                     new_row, new_col = self.action_result(action, row, col)
                     
                     if block_type[(row, col)] == 'river_bank' or block_type[(row, col)] == 'bridge': # Deterministico
-                        #self.transition_prob[action][(row, col)][action] = 1
                         self.transition_prob[action][(row, col)][(new_row, new_col)] = 1
                     elif block_type[(row, col)] == 'waterfall': # dead_end = True or False
                         if self._dead_end:
@@ -75,26 +77,26 @@ class RiverProblem:
                             self.transition_prob[action][(row, col)][(0, 0)] = 1
                     elif block_type[(row, col)] == 'river':
                         if action != 2: # Probabilistico
-                            #self.transition_prob[action][(row, col)][action] = (1 - river_flow)
                             self.transition_prob[action][(row, col)][(new_row, new_col)] = (1 - river_flow)
                             
-                            #self.transition_prob[action][(row, col)][2] = river_flow
                             left_row, left_col = self.action_result(2, row, col)
                             self.transition_prob[action][(row, col)][(left_row, left_col)] = river_flow
                         else: # Deterministico
                             self.transition_prob[action][(row, col)][(new_row, new_col)] = 1
+                    elif block_type[(row, col)] == 'goal':
+                        self.transition_prob[action][(row, col)][(new_row, new_col)] = 0
                     else:
                         raise '[build_self.transition_probabilities](!) Tipo de Bloco não identificado.'
                         
         return self.transition_prob
 
-    def _verify_sum_probabilities(self, transition_probabilities):
+    def _verify_sum_probabilities(self, transition_probabilities, block_type):
         is_ok, dict_verification = True, {}
         for action in transition_probabilities.keys():
             for state in transition_probabilities[action].keys():
                 dict_verification[(action, state)] = True if sum([v[1] for v in transition_probabilities[action][state].items()]) == 1 else False
 
-                if dict_verification[(action, state)] == False:
+                if dict_verification[(action, state)] == False and block_type[state] != 'goal':
                     print(action, state, [v[1] for v in transition_probabilities[action][state].items()])
                     is_ok = False
                         

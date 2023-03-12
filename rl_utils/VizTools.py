@@ -27,7 +27,7 @@ class VizTools:
                     
             best_action = min(action_values, key=action_values.get)
             
-            f = plt.arrow(S[1] + 0.5, S[0] + 0.5, arrow_lenght[best_action][0], arrow_lenght[best_action][1], fc="k", ec="k", head_width=0.06, head_length=0.1)
+            plt.arrow(S[1] + 0.5, S[0] + 0.5, arrow_lenght[best_action][0], arrow_lenght[best_action][1], fc="k", ec="k", head_width=0.06, head_length=0.1)
 
     def visualize_V(self, model_obj, V, grid_size, num_actions, goal_state, num_iterations, str_title, annot=True):
         df = pd.DataFrame(np.zeros(grid_size))

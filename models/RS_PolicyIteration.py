@@ -13,15 +13,31 @@ class RS_PolicyIteration:
         
         self._discount_factor = discount_factor
         self.V = self._build_V0()
-        self.PI = self._build_PI0()
+        self.PI = self._build_PI0(True, True)
         self._first_run = True
         self._i = 0
     
-    def _build_PI0(self, random=True):
+    def _build_PI0(self, random=True, proper=False):
         PI0 = {}
-        for r in range(0, self._rows):
-            for c in range(0, self._cols):
-                PI0[(r, c)] = self._get_random_action() if random else 0
+        if proper:
+            # Preenche todos os blocos de terra
+            for c in range(0, self._cols): 
+                PI0[(0, c)] = 3
+                PI0[(self._rows - 1, c)] = 2
+            for r in range(0, self._rows - 1):
+                PI0[(r, self._cols - 1)] = 1
+            # Preenche blocos waterfall
+            for r in range(1, self._rows-1):
+                PI0[(r, 0)] = self._get_random_action() if random else 0
+            # Preenche todos os blocos de rio
+            for r in range(1, self._rows-1):
+                for c in range(1, self._cols-1):
+                    PI0[(r, c)] = self._get_random_action() if random else 0
+        else:
+            for r in range(0, self._rows):
+                for c in range(0, self._cols):
+                    PI0[(r, c)] = self._get_random_action() if random else 0
+        
         return PI0
     
     def _build_V0(self):

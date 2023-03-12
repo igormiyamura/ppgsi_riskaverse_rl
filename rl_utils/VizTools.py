@@ -25,7 +25,7 @@ class VizTools:
                 if next_state != S:
                     action_values[action] = V[next_state]
                     
-            best_action = max(action_values, key=action_values.get)
+            best_action = min(action_values, key=action_values.get)
             
             f = plt.arrow(S[1] + 0.5, S[0] + 0.5, arrow_lenght[best_action][0], arrow_lenght[best_action][1], fc="k", ec="k", head_width=0.06, head_length=0.1)
 
@@ -38,4 +38,4 @@ class VizTools:
         f, a = plt.subplots(figsize=(18, 6))
         f = plt.title(f'{str_title} - V w/ {num_iterations} iterations.', fontsize =20)
         self.visualize_policy_arrows(model_obj, V, goal_state, num_actions)
-        return sns.heatmap(df, annot=annot, cmap='inferno')
+        return sns.heatmap(df, annot=annot, cmap="crest_r")

@@ -1,7 +1,7 @@
 
-import numpy as np
+import numpy as np, random
 
-class RiskNeutralPlanning:
+class PolicyIteration:
     def __init__(self, grid_size, goal_state, transition_probabilities, costs, num_actions=4, discount_factor=0.95, epsilon=0.001) -> None:
         self._rows, self._cols = grid_size[0], grid_size[1]
         self._goal_state = goal_state
@@ -13,6 +13,16 @@ class RiskNeutralPlanning:
         self._discount_factor = discount_factor
         self._epsilon = epsilon
         self.V = self._build_V0()
+        self.PI = self._build_PI0()
+        self._first_run = True
+        self._i = 0
+    
+    def _build_PI0(self, random=True):
+        PI0 = {}
+        for r in range(0, self._rows):
+            for c in range(0, self._cols):
+                PI0[(r, c)] = self._get_random_action() if random else 0
+        return PI0
     
     def _build_V0(self):
         V0 = {}
@@ -20,28 +30,21 @@ class RiskNeutralPlanning:
             for c in range(0, self._cols):
                 V0[(r, c)] = 0
         return V0
+    
+    def _get_random_action(self):
+        return int(random.choice([i for i in range(0, self._num_actions)]))
         
     def _reward_function(self, S, action):
         reward = self._costs[action]
         
         # Caso ele esteja na casa a direita do objetivo e a ação seja ir para esquerda
         if action == 2 and S == (self._goal_state[0], self._goal_state[1] + 1):
-            reward = 1
+            reward = -1
         
         return reward
     
     def _get_transition(self, S, a):
-        transition_matrix = {}
-        for r in range(0, self._rows):
-            for c in range(0, self._cols):
-                transition_matrix[(r, c)] = 0
-                
-        for action in self._transition_probabilities[a][S].keys():
-            if self._transition_probabilities[a][S][action] == 0: continue
-            
-            next_state = self._next_state(S, action)
-            transition_matrix[next_state] += self._transition_probabilities[a][S][action]
-            
+        transition_matrix = self._transition_probabilities[a][S]
         t = np.array([v[1] for v in transition_matrix.items()])
         return t
     
@@ -61,35 +64,49 @@ class RiskNeutralPlanning:
             y = min(y + 1, self._cols - 1)
         return (x, y)
         
+    def run_converge(self):
+        
+        while(self._first_run or (self.PI != self.PI_ANT)):
+            print(f'Iteração: {self._i}', end='\r')
+            self.step()
+            
+            self._first_run = False
+            self._i += 1
+            
+        return self._i
+        
     def step(self):
+        self.policy_evaluation()
+        self.policy_improvement()
+    
+    def policy_evaluation(self):
         V = {}
         for S in self.V.keys():
-            bellman = []
-            for a in range(0, self._num_actions):
-                b = self._reward_function(S, a) + self._discount_factor * \
-                    (self._get_transition(S, a) * self._get_V()).sum()
-                    
-                bellman.append(b)
-                
-            V[S] = max(bellman)
+            a = self.PI[S]
+            
+            bellman = self._reward_function(S, a) + self._discount_factor * \
+                (self._get_transition(S, a) * self._get_V()).sum()
+            
+            V[S] = bellman
         
         self.V = V
         return self.V
     
-    def run_converge(self):
-        qtd_iteracoes = 0
-        first = True
-
-        while(first or np.max(np.abs(np.array(V_k1) - np.array(V_k))) > 2 * self._epsilon):
-            first = False
-
-            V_k = [i[1] for i in self.V.items()]
-
-            self.step()
-            V_k1 = [i[1] for i in self.V.items()]
-            
-            qtd_iteracoes += 1
-            
-        return qtd_iteracoes
+    def policy_improvement(self):
+        self.PI_ANT = self.PI
+        
+        pi_improved = {}
+        for S in self.V.keys():
+            bellman = {}
+            for a in range(0, self._num_actions):
+                b = self._reward_function(S, a) + self._discount_factor * \
+                    (self._get_transition(S, a) * self._get_V()).sum()
+                    
+                bellman[a] = b
+                
+            pi_improved[S] = min(bellman, key=bellman.get)
+        
+        self.PI = pi_improved
+        return self.PI
     
     

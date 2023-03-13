@@ -64,7 +64,7 @@ class RiverProblem:
         for action in range(0, num_actions):
             for row in range(0, self._t_row):
                 for col in range(0, self._t_col):
-                    # 0: UP, 1: DOWN, 2: LEFT, 3: RIGHT
+                    # 0: DOWN, 1: UP, 2: LEFT, 3: RIGHT
                     self.transition_prob[action][(row, col)] = self.build_default_states_transition_dictionary(self._t_row, self._t_col) # {0: 0, 1: 0, 2: 0, 3: 0}
                     new_row, new_col = self.action_result(action, row, col)
                     

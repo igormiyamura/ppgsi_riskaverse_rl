@@ -1,21 +1,32 @@
 
 import numpy as np, random
 
-class RS_PolicyIteration:
-    def __init__(self, grid_size, goal_state, transition_probabilities, costs, vl_lambda, num_actions=4, discount_factor=0.95) -> None:
+class PieceLinear_RSPI:
+    def __init__(self, grid_size, goal_state, transition_probabilities, costs, k, alpha, gamma, num_actions=4) -> None:
         self._rows, self._cols = grid_size[0], grid_size[1]
         self._goal_state = goal_state
         self._num_actions = num_actions
-        self._lambda = vl_lambda
+        self._k = k
+        self._alpha = alpha
+        self._gamma = gamma
         
         self._transition_probabilities = transition_probabilities
         self._costs = costs
         
-        self._discount_factor = discount_factor
         self.V = self._build_V0()
+        self.V_ANT = self._build_V0()
         self.PI = self._build_PI0(True, True)
         self._first_run = True
         self._i = 0
+        
+    def _verify_alpha(self):
+        if (self._alpha <= 0) or (self._alpha > (1 + abs(self._k)) ** (-1)): raise Exception(f'Valor de alpha [{self._alpha}] inválido.')
+    
+    def _verify_k(self):
+        if (self._k < -1) or (self._k > 1): raise Exception(f'Valor de k [{self._k}] inválido.')
+    
+    def _piecewise_linear_transformation(self, x):
+        return (1 - self._k) * x if x < 0 else (1 + self._k) * x
     
     def _build_PI0(self, random=True, proper=False):
         PI0 = {}
@@ -55,7 +66,7 @@ class RS_PolicyIteration:
         
         # Caso ele esteja na casa a direita do objetivo e a ação seja ir para esquerda
         if action == 2 and S == (self._goal_state[0], self._goal_state[1] + 1):
-            reward = -1
+            reward = 0
         
         return reward
     
@@ -66,6 +77,10 @@ class RS_PolicyIteration:
     
     def _get_V(self):
         V = np.array([v[1] for v in self.V.items()])
+        return V
+    
+    def _get_V_ant(self):
+        V = np.array([v[1] for v in self.V_ANT.items()])
         return V
     
     def _next_state(self, state, action):
@@ -96,19 +111,26 @@ class RS_PolicyIteration:
         self.policy_improvement()
     
     def policy_evaluation(self):
-        V = {}
+        V = self.V
+        
         for S in self.V.keys():
             a = self.PI[S]
             
-            if S == self._goal_state:
-                bellman = -np.sign(self._lambda)
-            else:
-                bellman = np.exp(self._lambda * self._reward_function(S, a)) + self._discount_factor * \
-                    (self._get_transition(S, a) * self._get_V()).sum()
+            V_ATUAL = self._get_V()
+            V_ANT = self._get_V_ant()
+            T = self._get_transition(S, a)
+            X = self._piecewise_linear_transformation(self._k)
+            r = self._reward_function(S, a)
+            # print(f'V_ATUAL: {V_ATUAL} / V_ANT: {V_ANT} / T: {T} / X: {X}, / r: {r}')
             
-            V[S] = bellman
+            bellman = self._alpha * \
+                    (T * X * (r +  self._gamma * V_ATUAL - V_ANT)).sum()
+            # print(f'S: {S} / Bellman: {bellman}')
+            
+            V[S] += bellman
         
         self.V = V
+        self.V_ANT = self.V.copy()
         return self.V
     
     def policy_improvement(self):
@@ -119,8 +141,15 @@ class RS_PolicyIteration:
             bellman = {}
             # improve the current policy by doing  the following update for every s ∈ S
             for a in range(0, self._num_actions):
-                b = np.exp(self._lambda * self._reward_function(S, a)) + self._discount_factor * \
-                    (self._get_transition(S, a) * self._get_V()).sum()
+                
+                V_ATUAL = self._get_V()
+                V_ANT = self._get_V_ant()
+                T = self._get_transition(S, a)
+                X = self._piecewise_linear_transformation(self._k)
+                r = self._reward_function(S, a)
+                
+                b = \
+                    (T * X * (r + self._gamma * V_ATUAL - V_ANT)).sum()
                     
                 bellman[a] = b
                 

@@ -25,8 +25,15 @@ class PieceLinear_RSPI:
     def _verify_k(self):
         if (self._k < -1) or (self._k > 1): raise Exception(f'Valor de k [{self._k}] inválido.')
     
-    def _piecewise_linear_transformation(self, x):
-        return (1 - self._k) * x if x < 0 else (1 + self._k) * x
+    def _piecewise_linear_transformation(self, value):
+        if type(value) == np.ndarray:
+            res = []
+            for x in value:
+                res.append((1 - self._k) * x if x < 0 else (1 + self._k) * x)
+            return res
+        else:
+            x = value
+            return (1 - self._k) * x if x < 0 else (1 + self._k) * x
     
     def _build_PI0(self, random=True, proper=False):
         PI0 = {}
@@ -119,12 +126,13 @@ class PieceLinear_RSPI:
             V_ATUAL = self._get_V()
             V_ANT = self._get_V_ant()
             T = self._get_transition(S, a)
-            X = self._piecewise_linear_transformation(self._k)
             r = self._reward_function(S, a)
-            # print(f'V_ATUAL: {V_ATUAL} / V_ANT: {V_ANT} / T: {T} / X: {X}, / r: {r}')
             
+            X = self._piecewise_linear_transformation((r + self._gamma * V_ATUAL - V_ANT))
+            # print(f'V_ATUAL: {V_ATUAL} / V_ANT: {V_ANT} / T: {T} / X: {X}, / r: {r}')
+
             bellman = self._alpha * \
-                    (T * X * (r +  self._gamma * V_ATUAL - V_ANT)).sum()
+                    (T * X).sum()
             # print(f'S: {S} / Bellman: {bellman}')
             
             V[S] += bellman
@@ -145,11 +153,11 @@ class PieceLinear_RSPI:
                 V_ATUAL = self._get_V()
                 V_ANT = self._get_V_ant()
                 T = self._get_transition(S, a)
-                X = self._piecewise_linear_transformation(self._k)
                 r = self._reward_function(S, a)
                 
-                b = \
-                    (T * X * (r + self._gamma * V_ATUAL - V_ANT)).sum()
+                X = self._piecewise_linear_transformation((r + self._gamma * V_ATUAL - V_ANT))
+                
+                b = (T * X).sum()
                     
                 bellman[a] = b
                 

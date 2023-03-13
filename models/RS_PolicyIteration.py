@@ -1,5 +1,6 @@
 
 import numpy as np, random
+import time
 
 class RS_PolicyIteration:
     def __init__(self, grid_size, goal_state, transition_probabilities, costs, vl_lambda, num_actions=4, discount_factor=0.95) -> None:
@@ -81,7 +82,8 @@ class RS_PolicyIteration:
         return (x, y)
         
     def run_converge(self):
-        
+        start_time = time.time()
+
         while(self._first_run or (self.PI != self.PI_ANT)):
             print(f'Iteração: {self._i}', end='\r')
             self.step()
@@ -89,7 +91,7 @@ class RS_PolicyIteration:
             self._first_run = False
             self._i += 1
             
-        return self._i
+        return self._i, (time.time() - start_time)
         
     def step(self):
         self.policy_evaluation()
@@ -112,7 +114,7 @@ class RS_PolicyIteration:
         return self.V
     
     def policy_improvement(self):
-        self.PI_ANT = self.PI
+        self.PI_ANT = self.PI.copy()
         
         pi_improved = {}
         for S in self.V.keys():

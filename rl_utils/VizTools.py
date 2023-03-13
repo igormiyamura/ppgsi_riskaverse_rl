@@ -38,6 +38,6 @@ class VizTools:
         f, a = plt.subplots(figsize=(18, 6))
         f = plt.title(f'{str_title} - V w/ {num_iterations} iterations.', fontsize =20)
         self.visualize_policy_arrows(model_obj, V, goal_state, num_actions)
-        sns.heatmap(df, annot=annot, cmap="crest_r")
+        sns.heatmap(df, cmap="crest_r") # annot=annot,
         plt.show()
         return True

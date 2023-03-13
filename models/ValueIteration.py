@@ -1,5 +1,6 @@
 
 import numpy as np
+import time
 
 class ValueIteration:
     def __init__(self, grid_size, goal_state, transition_probabilities, costs, num_actions=4, discount_factor=0.95, epsilon=0.001) -> None:
@@ -67,6 +68,8 @@ class ValueIteration:
         return self.V
     
     def run_converge(self):
+        start_time = time.time()
+        
         qtd_iteracoes = 0
         first = True
 
@@ -80,6 +83,6 @@ class ValueIteration:
             
             qtd_iteracoes += 1
             
-        return qtd_iteracoes
+        return qtd_iteracoes, (time.time() - start_time)
     
     

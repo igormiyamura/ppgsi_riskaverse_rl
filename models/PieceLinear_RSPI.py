@@ -1,5 +1,6 @@
 
 import numpy as np, random
+import time
 
 class PieceLinear_RSPI:
     def __init__(self, grid_size, goal_state, transition_probabilities, costs, k, alpha, gamma, num_actions=4) -> None:
@@ -16,6 +17,8 @@ class PieceLinear_RSPI:
         self.V = self._build_V0()
         self.V_ANT = self._build_V0()
         self.PI = self._build_PI0(True, True)
+        self.C = self._build_costs()
+        
         self._first_run = True
         self._i = 0
         
@@ -58,6 +61,15 @@ class PieceLinear_RSPI:
         
         return PI0
     
+    def _build_costs(self):
+        C = {}
+        for r in range(0, self._rows):
+            for c in range(0, self._cols):
+                C[(r, c)] = 1
+        C[self._goal_state] = 0
+        
+        return C
+    
     def _build_V0(self):
         V0 = {}
         for r in range(0, self._rows):
@@ -82,6 +94,10 @@ class PieceLinear_RSPI:
         t = np.array([v[1] for v in transition_matrix.items()])
         return t
     
+    def _get_costs(self):
+        C = np.array([c[1] for c in self.C.items()])
+        return C
+    
     def _get_V(self):
         V = np.array([v[1] for v in self.V.items()])
         return V
@@ -103,7 +119,8 @@ class PieceLinear_RSPI:
         return (x, y)
         
     def run_converge(self):
-        
+        start_time = time.time()
+
         while(self._first_run or (self.PI != self.PI_ANT)):
             print(f'Iteração: {self._i}', end='\r')
             self.step()
@@ -111,14 +128,14 @@ class PieceLinear_RSPI:
             self._first_run = False
             self._i += 1
             
-        return self._i
+        return self._i, (time.time() - start_time)
         
     def step(self):
         self.policy_evaluation()
         self.policy_improvement()
     
     def policy_evaluation(self):
-        V = self.V
+        V = self.V.copy()
         
         for S in self.V.keys():
             a = self.PI[S]
@@ -126,9 +143,9 @@ class PieceLinear_RSPI:
             V_ATUAL = self._get_V()
             V_ANT = self._get_V_ant()
             T = self._get_transition(S, a)
-            r = self._reward_function(S, a)
+            C = self._get_costs()
             
-            X = self._piecewise_linear_transformation((r + self._gamma * V_ATUAL - V_ANT))
+            X = self._piecewise_linear_transformation((C + self._gamma * V_ATUAL - V_ANT))
             # print(f'V_ATUAL: {V_ATUAL} / V_ANT: {V_ANT} / T: {T} / X: {X}, / r: {r}')
 
             bellman = self._alpha * \
@@ -137,12 +154,12 @@ class PieceLinear_RSPI:
             
             V[S] += bellman
         
-        self.V = V
         self.V_ANT = self.V.copy()
+        self.V = V
         return self.V
     
     def policy_improvement(self):
-        self.PI_ANT = self.PI
+        self.PI_ANT = self.PI.copy()
         
         pi_improved = {}
         for S in self.V.keys():
@@ -153,9 +170,9 @@ class PieceLinear_RSPI:
                 V_ATUAL = self._get_V()
                 V_ANT = self._get_V_ant()
                 T = self._get_transition(S, a)
-                r = self._reward_function(S, a)
+                C = self._get_costs()
                 
-                X = self._piecewise_linear_transformation((r + self._gamma * V_ATUAL - V_ANT))
+                X = self._piecewise_linear_transformation((C + self._gamma * V_ATUAL - V_ANT))
                 
                 b = (T * X).sum()
                     

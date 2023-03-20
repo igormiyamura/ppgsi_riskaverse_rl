@@ -2,8 +2,13 @@
 import numpy as np, random
 import time
 
+from rl_utils.VizTools import VizTools
+
 class RS_PolicyIteration:
     def __init__(self, grid_size, goal_state, transition_probabilities, costs, vl_lambda, num_actions=4, discount_factor=0.95) -> None:
+        self.viz_tools = VizTools()
+        
+        self._grid_size = grid_size
         self._rows, self._cols = grid_size[0], grid_size[1]
         self._goal_state = goal_state
         self._num_actions = num_actions
@@ -14,9 +19,13 @@ class RS_PolicyIteration:
         
         self._discount_factor = discount_factor
         self.V = self._build_V0()
-        self.PI = self._build_PI0(True, True)
+        self.PI = self._build_PI0(True, False)
         self._first_run = True
         self._i = 0
+    
+    def __repr__(self):
+        self.viz_tools.visualize_V(self, self.V, self._grid_size, 4, self._goal_state, self._i, 
+                               str_title=f'RiverProblem w/ ValueIteration')
     
     def _build_PI0(self, random=True, proper=False):
         PI0 = {}
@@ -56,7 +65,7 @@ class RS_PolicyIteration:
         
         # Caso ele esteja na casa a direita do objetivo e a ação seja ir para esquerda
         if action == 2 and S == (self._goal_state[0], self._goal_state[1] + 1):
-            reward = -1
+            reward = 0
         
         return reward
     
@@ -105,12 +114,12 @@ class RS_PolicyIteration:
             if S == self._goal_state:
                 bellman = -np.sign(self._lambda)
             else:
-                bellman = np.exp(self._lambda * self._reward_function(S, a)) + self._discount_factor * \
+                bellman = np.exp(-self._lambda * self._reward_function(S, a)) * \
                     (self._get_transition(S, a) * self._get_V()).sum()
             
             V[S] = bellman
         
-        self.V = V
+        self.V = V.copy()
         return self.V
     
     def policy_improvement(self):
@@ -121,14 +130,14 @@ class RS_PolicyIteration:
             bellman = {}
             # improve the current policy by doing  the following update for every s ∈ S
             for a in range(0, self._num_actions):
-                b = np.exp(self._lambda * self._reward_function(S, a)) + self._discount_factor * \
+                b = np.exp(-self._lambda * self._reward_function(S, a)) * \
                     (self._get_transition(S, a) * self._get_V()).sum()
                     
                 bellman[a] = b
                 
             pi_improved[S] = min(bellman, key=bellman.get)
         
-        self.PI = pi_improved
+        self.PI = pi_improved.copy()
         return self.PI
     
     

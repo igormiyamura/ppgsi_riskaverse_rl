@@ -2,8 +2,13 @@
 import numpy as np, random
 import time
 
+from rl_utils.VizTools import VizTools
+
 class PieceLinear_RSPI:
     def __init__(self, grid_size, goal_state, transition_probabilities, costs, k, alpha, gamma, num_actions=4) -> None:
+        self.viz_tools = VizTools()
+        
+        self._grid_size = grid_size
         self._rows, self._cols = grid_size[0], grid_size[1]
         self._goal_state = goal_state
         self._num_actions = num_actions
@@ -21,6 +26,14 @@ class PieceLinear_RSPI:
         
         self._first_run = True
         self._i = 0
+        
+    def __repr__(self):
+        self.viz_tools.visualize_V(self, self.V, self._grid_size, 4, self._goal_state, self._i, 
+                               str_title=f'RiverProblem w/ ValueIteration')
+        return '> Visualização da Política \n' + \
+            f'k: {self._k} \n' + \
+            f'alpha: {self._alpha} \n' + \
+            f'gamma: {self._gamma} '
         
     def _verify_alpha(self):
         if (self._alpha <= 0) or (self._alpha > (1 + abs(self._k)) ** (-1)): raise Exception(f'Valor de alpha [{self._alpha}] inválido.')

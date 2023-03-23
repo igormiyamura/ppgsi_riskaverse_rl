@@ -2,8 +2,14 @@
 import numpy as np, random
 import time
 
+from rl_utils.VizTools import VizTools
+
 class PolicyIteration:
-    def __init__(self, grid_size, goal_state, transition_probabilities, costs, num_actions=4, discount_factor=0.95, epsilon=0.001) -> None:
+    def __init__(self, grid_size, goal_state, transition_probabilities, costs, 
+                 num_actions=4, discount_factor=0.95, epsilon=0.001) -> None:
+        self.viz_tools = VizTools()
+        
+        self._grid_size = grid_size
         self._rows, self._cols = grid_size[0], grid_size[1]
         self._goal_state = goal_state
         self._num_actions = num_actions
@@ -17,6 +23,14 @@ class PolicyIteration:
         self.PI = self._build_PI0()
         self._first_run = True
         self._i = 0
+    
+    def __repr__(self):
+        self.viz_tools.visualize_V(self, self.V, self._grid_size, 4, self._goal_state, self._i, 
+                               str_title=f'Policy Iteration')
+        
+        return f'RiverProblem - \n' + \
+            f'Discount Factor: {self._discount_factor} \n' + \
+            f'Epsilon: {self._epsilon} \n'
     
     def _build_PI0(self, random=True):
         PI0 = {}
@@ -82,16 +96,22 @@ class PolicyIteration:
         self.policy_improvement()
     
     def policy_evaluation(self):
-        V = {}
-        for S in self.V.keys():
-            a = self.PI[S]
-            
-            bellman = self._reward_function(S, a) + self._discount_factor * \
-                (self._get_transition(S, a) * self._get_V()).sum()
-            
-            V[S] = bellman
+        V, V_ANT, i = {}, self.V.copy(), 0
         
-        self.V = V
+        while(i == 0 or \
+            np.max(np.abs( np.subtract(list(self.V.values()), list(V_ANT.values())) )) > 2 * self._epsilon):
+            
+            V_ANT = self.V.copy()
+            for S in self.V.keys():
+                a = self.PI[S]
+                
+                bellman = self._reward_function(S, a) + self._discount_factor * \
+                    (self._get_transition(S, a) * self._get_V()).sum()
+                
+                V[S] = bellman
+            
+            self.V = V.copy()
+            i += 1
         return self.V
     
     def policy_improvement(self):

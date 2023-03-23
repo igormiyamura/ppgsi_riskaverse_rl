@@ -5,7 +5,8 @@ import time
 from rl_utils.VizTools import VizTools
 
 class PieceLinear_RSPI:
-    def __init__(self, grid_size, goal_state, transition_probabilities, costs, k, alpha, gamma, num_actions=4) -> None:
+    def __init__(self, grid_size, goal_state, transition_probabilities, 
+                 costs, k, alpha, gamma, num_actions=4, epsilon=0.001) -> None:
         self.viz_tools = VizTools()
         
         self._grid_size = grid_size
@@ -18,6 +19,7 @@ class PieceLinear_RSPI:
         
         self._transition_probabilities = transition_probabilities
         self._costs = costs
+        self._epsilon = epsilon
         
         self.V = self._build_V0()
         self.V_ANT = self._build_V0()
@@ -148,27 +150,26 @@ class PieceLinear_RSPI:
         self.policy_improvement()
     
     def policy_evaluation(self):
-        V = self.V.copy()
+        V, V_ANT, i = self.V.copy(), self.V.copy(), 0
         
-        for S in self.V.keys():
-            a = self.PI[S]
+        while(i == 0 or self.verify_residual()):
             
-            V_ATUAL = self._get_V()
-            V_ANT = self._get_V_ant()
-            T = self._get_transition(S, a)
-            C = self._get_costs()
-            
-            X = self._piecewise_linear_transformation((C + self._gamma * V_ATUAL - V_ANT))
-            # print(f'V_ATUAL: {V_ATUAL} / V_ANT: {V_ANT} / T: {T} / X: {X}, / r: {r}')
+            for S in self.V.keys():
+                a = self.PI[S]
+                
+                V_ATUAL = self._get_V()
+                V_ANTERIOR = self._get_V_ant()
+                T = self._get_transition(S, a)
+                C = self._get_costs()
 
-            bellman = self._alpha * \
-                    (T * X).sum()
-            # print(f'S: {S} / Bellman: {bellman}')
+                bellman = self._alpha * self.function_O(self, V_ATUAL, V_ANT, T, C)
+                
+                V[S] += bellman
             
-            V[S] += bellman
-        
-        self.V_ANT = self.V.copy()
-        self.V = V
+            self.V_ANT = self.V.copy()
+            self.V = V.copy()
+            i += 1
+            
         return self.V
     
     def policy_improvement(self):
@@ -185,9 +186,7 @@ class PieceLinear_RSPI:
                 T = self._get_transition(S, a)
                 C = self._get_costs()
                 
-                X = self._piecewise_linear_transformation((C + self._gamma * V_ATUAL - V_ANT))
-                
-                b = (T * X).sum()
+                b = self.function_O(V_ATUAL, V_ANT, T, C)
                     
                 bellman[a] = b
                 
@@ -196,4 +195,12 @@ class PieceLinear_RSPI:
         self.PI = pi_improved
         return self.PI
     
+    def function_O(self, V_ATUAL, V_ANT, T, C):
+        X = self._piecewise_linear_transformation((C + self._gamma * V_ATUAL - V_ANT))
+        return (T * X).sum()
     
+    def get_residual_rho(self):
+        return (1 - self._alpha * (1 - abs(self._k)) * (1 - self._gamma))
+    
+    def verify_residual(self, O_V1, O_V2, V1, V2):
+        return O_V1 - O_V2 <= self.get_residual_rho * abs(V1 - V2)

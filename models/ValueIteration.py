@@ -2,8 +2,13 @@
 import numpy as np
 import time
 
+from rl_utils.VizTools import VizTools
+
 class ValueIteration:
     def __init__(self, grid_size, goal_state, transition_probabilities, costs, num_actions=4, discount_factor=0.95, epsilon=0.001) -> None:
+        self.viz_tools = VizTools()
+        
+        self._grid_size = grid_size
         self._rows, self._cols = grid_size[0], grid_size[1]
         self._goal_state = goal_state
         self._num_actions = num_actions
@@ -14,6 +19,14 @@ class ValueIteration:
         self._discount_factor = discount_factor
         self._epsilon = epsilon
         self.V = self._build_V0()
+    
+    def __repr__(self):
+        self.viz_tools.visualize_V(self, self.V, self._grid_size, 4, self._goal_state, 0, 
+                               str_title=f'Policy Iteration')
+        
+        return f'RiverProblem - \n' + \
+            f'Discount Factor: {self._discount_factor} \n' + \
+            f'Epsilon: {self._epsilon} \n'
     
     def _build_V0(self):
         V0 = {}

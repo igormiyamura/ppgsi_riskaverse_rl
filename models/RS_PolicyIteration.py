@@ -5,7 +5,8 @@ import time
 from rl_utils.VizTools import VizTools
 
 class RS_PolicyIteration:
-    def __init__(self, grid_size, goal_state, transition_probabilities, costs, vl_lambda, num_actions=4, discount_factor=0.95) -> None:
+    def __init__(self, grid_size, goal_state, transition_probabilities, costs, 
+                 vl_lambda, num_actions=4, epsilon=0.001) -> None:
         self.viz_tools = VizTools()
         
         self._grid_size = grid_size
@@ -16,8 +17,8 @@ class RS_PolicyIteration:
         
         self._transition_probabilities = transition_probabilities
         self._costs = costs
+        self._epsilon = epsilon
         
-        self._discount_factor = discount_factor
         self.V = self._build_V0()
         self.PI = self._build_PI0(True, False)
         self._first_run = True
@@ -25,7 +26,11 @@ class RS_PolicyIteration:
     
     def __repr__(self):
         self.viz_tools.visualize_V(self, self.V, self._grid_size, 4, self._goal_state, self._i, 
-                               str_title=f'RiverProblem w/ ValueIteration')
+                               str_title=f'Exponential Utility Function - RSMDP')
+        
+        return f'RiverProblem - \n' + \
+            f'Lambda: {self._lambda} \n' + \
+            f'Epsilon: {self._epsilon} \n'
     
     def _build_PI0(self, random=True, proper=False):
         PI0 = {}
@@ -54,7 +59,7 @@ class RS_PolicyIteration:
         V0 = {}
         for r in range(0, self._rows):
             for c in range(0, self._cols):
-                V0[(r, c)] = 0
+                V0[(r, c)] = -np.sign(self._lambda)
         return V0
     
     def _get_random_action(self):
@@ -107,19 +112,25 @@ class RS_PolicyIteration:
         self.policy_improvement()
     
     def policy_evaluation(self):
-        V = {}
-        for S in self.V.keys():
-            a = self.PI[S]
-            
-            if S == self._goal_state:
-                bellman = -np.sign(self._lambda)
-            else:
-                bellman = np.exp(-self._lambda * self._reward_function(S, a)) * \
-                    (self._get_transition(S, a) * self._get_V()).sum()
-            
-            V[S] = bellman
+        V, V_ANT, i = {}, self.V.copy(), 0
         
-        self.V = V.copy()
+        while(i == 0 or \
+            np.max(np.abs( np.subtract(list(self.V.values()), list(V_ANT.values())) )) > 2 * self._epsilon):
+            
+            V_ANT = self.V.copy()
+            for S in self.V.keys():
+                a = self.PI[S]
+                
+                if S == self._goal_state:
+                    bellman = -np.sign(self._lambda)
+                else:
+                    bellman = np.exp(-self._lambda * self._reward_function(S, a)) * \
+                        (self._get_transition(S, a) * self._get_V()).sum()
+                
+                V[S] = bellman
+            
+            self.V = V.copy()
+            i += 1
         return self.V
     
     def policy_improvement(self):

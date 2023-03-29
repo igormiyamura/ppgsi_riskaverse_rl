@@ -4,11 +4,14 @@ import time
 
 from rl_utils.VizTools import VizTools
 
+np.seterr(divide='ignore', invalid='ignore')
+
 class PieceLinear_RSPI:
     def __init__(self, grid_size, goal_state, transition_probabilities, 
-                 costs, k, alpha, gamma, num_actions=4, epsilon=0.001) -> None:
+                 costs, k, alpha, gamma, num_actions=4, epsilon=0.001, river_flow=None) -> None:
         self.viz_tools = VizTools()
         
+        self._river_flow = river_flow
         self._grid_size = grid_size
         self._rows, self._cols = grid_size[0], grid_size[1]
         self._goal_state = goal_state
@@ -23,7 +26,7 @@ class PieceLinear_RSPI:
         
         self.V = self._build_V0()
         self.V_ANT = self._build_V0()
-        self.PI = self._build_PI0(True, True)
+        self.PI = self._build_PI0(True, False)
         self.C = self._build_costs()
         
         self._first_run = True
@@ -31,7 +34,7 @@ class PieceLinear_RSPI:
         
     def __repr__(self):
         self.viz_tools.visualize_V(self, self.V, self._grid_size, 4, self._goal_state, self._i, 
-                               str_title=f'RiverProblem w/ ValueIteration')
+                               str_title=f'Piecewise Linear PI - RF: {self._river_flow} / k: {self._k}')
         return '> Visualização da Política \n' + \
             f'k: {self._k} \n' + \
             f'alpha: {self._alpha} \n' + \
@@ -150,9 +153,13 @@ class PieceLinear_RSPI:
         self.policy_improvement()
     
     def policy_evaluation(self):
-        V, V_ANT, i = self.V.copy(), self.V.copy(), 0
+        i = 0
+        # self.V_ANT = self._build_V0()
         
-        while(i == 0 or self.verify_residual()):
+        while(i == 0 or self.relative_residual(self._get_V(), self._get_V_ant())):
+            # print('V:', self._get_V())
+            # print('V_ANT:', self._get_V_ant())
+            self.V_ANT = self.V.copy()
             
             for S in self.V.keys():
                 a = self.PI[S]
@@ -162,12 +169,10 @@ class PieceLinear_RSPI:
                 T = self._get_transition(S, a)
                 C = self._get_costs()
 
-                bellman = self._alpha * self.function_O(self, V_ATUAL, V_ANT, T, C)
-                
-                V[S] += bellman
+                bellman = self._alpha * self.function_O(V_ATUAL, V_ANTERIOR, T, C)
+                # print(S, bellman)
+                self.V[S] += bellman
             
-            self.V_ANT = self.V.copy()
-            self.V = V.copy()
             i += 1
             
         return self.V
@@ -183,6 +188,10 @@ class PieceLinear_RSPI:
                 
                 V_ATUAL = self._get_V()
                 V_ANT = self._get_V_ant()
+                
+                # print('V:', self._get_V())
+                # print('V_ANT:', self._get_V_ant())
+            
                 T = self._get_transition(S, a)
                 C = self._get_costs()
                 
@@ -191,7 +200,8 @@ class PieceLinear_RSPI:
                 bellman[a] = b
                 
             pi_improved[S] = min(bellman, key=bellman.get)
-        
+        # print('PI Atual:', self.PI)
+        # print('PI Improved:', pi_improved)
         self.PI = pi_improved
         return self.PI
     
@@ -202,5 +212,15 @@ class PieceLinear_RSPI:
     def get_residual_rho(self):
         return (1 - self._alpha * (1 - abs(self._k)) * (1 - self._gamma))
     
+    def relative_residual(self, V_ATUAL, V_ANTERIOR):
+        residual = []
+        for i in range(0, len(V_ATUAL)):
+            try:
+                residual.append(abs((V_ATUAL[i] - V_ANTERIOR[i])/V_ANTERIOR[i]))
+            except:
+                residual.append(np.inf)
+        # print('Residual: ', max(residual))
+        return max(residual) > self._epsilon
+    
     def verify_residual(self, O_V1, O_V2, V1, V2):
-        return O_V1 - O_V2 <= self.get_residual_rho * abs(V1 - V2)
+        return abs(O_V1 - O_V2) <= self.get_residual_rho * abs(V1 - V2)

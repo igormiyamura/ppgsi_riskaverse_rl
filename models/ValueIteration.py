@@ -5,9 +5,11 @@ import time
 from rl_utils.VizTools import VizTools
 
 class ValueIteration:
-    def __init__(self, grid_size, goal_state, transition_probabilities, costs, num_actions=4, discount_factor=0.95, epsilon=0.001) -> None:
+    def __init__(self, grid_size, goal_state, transition_probabilities, costs, 
+                 num_actions=4, discount_factor=0.95, epsilon=0.001, river_flow=None) -> None:
         self.viz_tools = VizTools()
         
+        self._river_flow = river_flow
         self._grid_size = grid_size
         self._rows, self._cols = grid_size[0], grid_size[1]
         self._goal_state = goal_state

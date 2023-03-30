@@ -1,5 +1,5 @@
 
-import numpy as np
+import numpy as np, copy
 from rl_utils.VizTools import VizTools
 
 class PieceLinear_RSVI:
@@ -23,8 +23,8 @@ class PieceLinear_RSVI:
         
         self.C = self._build_costs()
         self.V = self._build_V0()
-        self.Qa = self._build_Q0()
-        self.Qp = self._build_Q0()
+        self.Qi1 = self._build_Q0()
+        self.Qi = self._build_Q0()
         
     def __repr__(self):
         self.viz_tools.visualize_V(self, self.V, self._grid_size, 4, self._goal_state, self._i, 
@@ -79,7 +79,7 @@ class PieceLinear_RSVI:
         reward = self._costs[action]
         
         # Caso ele esteja na casa a direita do objetivo e a ação seja ir para esquerda
-        if action == 2 and S == (self._goal_state[0], self._goal_state[1] + 1):
+        if S == (self._goal_state[0], self._goal_state[1]):
             reward = 0
         
         return reward
@@ -119,29 +119,42 @@ class PieceLinear_RSVI:
     
     def calculate_value(self):
         self._i = 0
+        
         while True:
-            v = self.V.copy()
-            self.Qa = self.Qp.copy()
+            V_prev = copy.deepcopy(self.V)
+            Qi1 = copy.deepcopy(self.Qi)
             
             for S in self.V.keys():
                 for a in range(self._num_actions):
-                    Qa_min = min(self.Qa[S], key=self.Qa[S].get)
-                    T = self._get_transition(S, a)
-                    C = self._get_costs()
-                    
-                    self.Qp[S][a] = self.Qa[S][a] + self._alpha * self.function_O(self.Qa[S][Qa_min], self.Qa[S][a], T, C)
-                    
-                self.V[S] = min(self.Qp[S].values())
+                    q = 0
+                    for S_next in self.V.keys():
+                        C = self._reward_function(S, a)
+                        q += self._transition_probabilities[a][S][S_next] * self.function_O(Qi1[S_next], Qi1[S][a], C)
 
+                    self.Qi[S][a] = Qi1[S][a] + self._alpha * q
+                    
+                    # print(f'S: [{S}] / Qi[S]: [{Qi1[S]}] / C: [{C}] / Qp: [{self.Qi[S][a]}] / q: [{q}]')
+                    
+                self.V[S] = min(self.Qi[S].values())
+            
+            # print(f'--- V: {self.V} \n --- Qa: {Qi1} \n --- Qp {self.Qi}')
             self._i += 1
-            if self.relative_residual(self._get_values_from_dict(self.V), self._get_values_from_dict(v)):
+            # if self._i == 2:
+            #     break
+            
+            if self.relative_residual(self._get_values_from_dict(self.V), self._get_values_from_dict(V_prev)):
                 break
                 
         return self._i, 0
         
-    def function_O(self, Q1, Q2, T, C):
-        X = self._piecewise_linear_transformation((C + self._gamma * Q1 - Q2))
-        return (T * X).sum()
+    def function_O(self, Q1, Q2, C):
+        Q1min = []
+        for a_line in range(self._num_actions):
+            Q1min.append(Q1[a_line])
+        
+        X = self._piecewise_linear_transformation((C + self._gamma * min(Q1min) - Q2))
+
+        return X
         
     def relative_residual(self, V1, V2):
         residual = []
@@ -150,5 +163,5 @@ class PieceLinear_RSVI:
                 residual.append(abs((V1[i] - V2[i])/V2[i]))
             except:
                 residual.append(np.inf)
-        print('Residual: ', max(residual), end='\r')
+        # print('Residual: ', max(residual), end='\r')
         return max(residual) <= self._epsilon

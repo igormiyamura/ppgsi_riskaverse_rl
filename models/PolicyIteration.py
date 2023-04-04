@@ -54,8 +54,8 @@ class PolicyIteration:
         reward = self._costs[action]
         
         # Caso ele esteja na casa a direita do objetivo e a ação seja ir para esquerda
-        if action == 2 and S == (self._goal_state[0], self._goal_state[1] + 1):
-            reward = -1
+        if S == self._goal_state:
+            reward = 0
         
         return reward
     

@@ -1,5 +1,5 @@
 
-import numpy as np, random
+import numpy as np, random, copy
 import time
 
 from rl_utils.VizTools import VizTools
@@ -21,7 +21,7 @@ class RS_PolicyIteration:
         self._epsilon = epsilon
         
         self.V = self._build_V0()
-        self.PI = self._build_PI0(True, False)
+        self.PI = self._build_PI0(True, True)
         self._first_run = True
         self._i = 0
     
@@ -60,17 +60,18 @@ class RS_PolicyIteration:
         V0 = {}
         for r in range(0, self._rows):
             for c in range(0, self._cols):
+                # Preenche o V0 com o negativo do sinal do Lambda
                 V0[(r, c)] = -np.sign(self._lambda)
         return V0
     
     def _get_random_action(self):
         return int(random.choice([i for i in range(0, self._num_actions)]))
         
-    def _reward_function(self, S, action):
+    def _cost_function(self, S, action):
         reward = self._costs[action]
         
         # Caso ele esteja na casa a direita do objetivo e a ação seja ir para esquerda
-        if action == 2 and S == (self._goal_state[0], self._goal_state[1] + 1):
+        if S == (self._goal_state[0], self._goal_state[1]):
             reward = 0
         
         return reward
@@ -113,43 +114,69 @@ class RS_PolicyIteration:
         self.policy_improvement()
     
     def policy_evaluation(self):
-        V, V_ANT, i = {}, self.V.copy(), 0
+        i = 0
+        V = {}
+        V_ANT = self._build_V0() # copy.deepcopy(self.V)
         
-        while(i == 0 or \
-            np.max(np.abs( np.subtract(list(self.V.values()), list(V_ANT.values())) )) > 2 * self._epsilon):
-            
-            V_ANT = self.V.copy()
+        while(i == 0 or self.verify_residual(V, V_ANT)):
+            V_ANT = copy.deepcopy(self.V)
             for S in self.V.keys():
-                a = self.PI[S]
+                pi_a = self.PI[S]
                 
                 if S == self._goal_state:
                     bellman = -np.sign(self._lambda)
+                    # print(bellman)
                 else:
-                    bellman = np.exp(-self._lambda * self._reward_function(S, a)) * \
-                        (self._get_transition(S, a) * self._get_V()).sum()
-                
+                    C = self._cost_function(S, pi_a)
+                    l = self._lambda
+                    
+                    TV = 0
+                    
+                    for S_next in self.V.keys():
+                        TV += self._transition_probabilities[pi_a][S][S_next] * self.V[S_next]
+                        # TV = (self._get_transition(S, pi_a) * self._get_V()).sum()
+                    
+                    bellman = np.exp(l * C) * TV
+                    # print(f'({S}) Lambda: {self._lambda} / C: {C} / exp(lC): {np.exp(l * C)} / TV: {TV} / Bellman: {bellman}')
+                        
                 V[S] = bellman
             
-            self.V = V.copy()
+            # print(f'V: {V}')
+            self.V = copy.deepcopy(V)
             i += 1
+        
         return self.V
     
     def policy_improvement(self):
-        self.PI_ANT = self.PI.copy()
+        # print('>>>>>>>>>>> POLICY IMPROVEMENT')
+        self.PI_ANT = copy.deepcopy(self.PI)
         
         pi_improved = {}
         for S in self.V.keys():
             bellman = {}
             # improve the current policy by doing  the following update for every s ∈ S
             for a in range(0, self._num_actions):
-                b = np.exp(-self._lambda * self._reward_function(S, a)) * \
+                b = np.exp(self._lambda * self._cost_function(S, a)) * \
                     (self._get_transition(S, a) * self._get_V()).sum()
                     
                 bellman[a] = b
                 
             pi_improved[S] = min(bellman, key=bellman.get)
         
-        self.PI = pi_improved.copy()
+        self.PI = copy.deepcopy(pi_improved)
         return self.PI
     
+    def verify_residual(self, V, V_ANT):
+        res = np.max(np.abs( np.subtract(list(V.values()), list(V_ANT.values())) ))
+        # print(f'> Residual: {res} \n \n \n')
+        return res > 2 * self._epsilon
     
+    def relative_residual(self, V1, V2):
+        residual = []
+        for i in range(len(V1)):
+            try:
+                residual.append(abs((V1[i] - V2[i])/V2[i]))
+            except:
+                residual.append(np.inf)
+        # print('~~~~~~~~~~~~>> Residual: ', max(residual), end='\r')
+        return max(residual) <= self._epsilon

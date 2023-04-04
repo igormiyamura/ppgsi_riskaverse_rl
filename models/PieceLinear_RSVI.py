@@ -58,13 +58,13 @@ class PieceLinear_RSVI:
         return V0
     
     def _build_Q0(self):
-        V0 = {}
+        Q0 = {}
         for r in range(0, self._rows):
             for c in range(0, self._cols):
-                V0[(r, c)] = {}
+                Q0[(r, c)] = {}
                 for a in range(self._num_actions):
-                    V0[(r, c)][a] = 0
-        return V0
+                    Q0[(r, c)][a] = 0
+        return Q0
     
     def _build_costs(self):
         C = {}

@@ -165,3 +165,5 @@ class PieceLinear_RSVI:
                 residual.append(np.inf)
         # print('Residual: ', max(residual), end='\r')
         return max(residual) <= self._epsilon
+    
+    

@@ -42,7 +42,7 @@ class ValueIteration:
         
         # Caso ele esteja na casa a direita do objetivo e a ação seja ir para esquerda
         if action == 2 and S == (self._goal_state[0], self._goal_state[1] + 1):
-            reward = -1
+            reward = 0
         
         return reward
     
@@ -67,6 +67,11 @@ class ValueIteration:
             y = min(y + 1, self._cols - 1)
         return (x, y)
         
+    def verify_residual(self, V, V_ANT):
+        res = max(np.abs(np.subtract(V, V_ANT)))
+        print(f'> Residual: {res}', end='\r')
+        return res < 2 * self._epsilon
+    
     def step(self):
         V = {}
         for S in self.V.keys():
@@ -88,7 +93,7 @@ class ValueIteration:
         qtd_iteracoes = 0
         first = True
 
-        while(first or np.max(np.abs(np.array(V_k1) - np.array(V_k))) > 2 * self._epsilon):
+        while True:
             first = False
 
             V_k = [i[1] for i in self.V.items()]
@@ -98,6 +103,8 @@ class ValueIteration:
             
             qtd_iteracoes += 1
             
+            if self.verify_residual(V_k1, V_k):
+                break
+            
         return qtd_iteracoes, (time.time() - start_time)
-    
     

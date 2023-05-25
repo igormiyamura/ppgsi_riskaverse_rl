@@ -1,4 +1,5 @@
 
+import random
 
 class RiverProblem:
     
@@ -6,6 +7,21 @@ class RiverProblem:
         self._t_row, self._t_col = grid_size[0], grid_size[1]
         self._goal_state = goal_state
         self._dead_end = dead_end
+    
+    def _get_random_action(self, num_actions):
+        return int(random.choice([i for i in range(0, num_actions)]))
+    
+    def _next_state(self, state, action):
+        x, y = state
+        if action == 0:   # up
+            x = max(x - 1, 0)
+        elif action == 1: # down
+            x = min(x + 1, self._t_row - 1)
+        elif action == 2: # left
+            y = max(y - 1, 0)
+        elif action == 3: # right
+            y = min(y + 1, self._t_col - 1)
+        return (x, y)
     
     def build_block_type(self):
         block_type = {}
@@ -46,9 +62,9 @@ class RiverProblem:
     
     def action_result(self, action, row, col):
         if action == 0:
-            return min([row + 1, (self._t_row - 1)]), col
-        elif action == 1:
             return max([row - 1, 0]), col
+        elif action == 1:
+            return min([row + 1, (self._t_row - 1)]), col
         elif action == 2:
             return row, max([col - 1, 0])
         elif action == 3:

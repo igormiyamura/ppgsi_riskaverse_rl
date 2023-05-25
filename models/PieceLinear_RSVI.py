@@ -1,5 +1,5 @@
 
-import numpy as np, copy
+import numpy as np, copy, random
 from rl_utils.VizTools import VizTools
 
 class PieceLinear_RSVI:
@@ -25,6 +25,7 @@ class PieceLinear_RSVI:
         self.V = self._build_V0()
         self.Qi1 = self._build_Q0()
         self.Qi = self._build_Q0()
+        self.PI = self._build_PI0(True, True)
         
     def __repr__(self):
         self.viz_tools.visualize_V(self, self.V, self._grid_size, 4, self._goal_state, self._i, 
@@ -49,6 +50,32 @@ class PieceLinear_RSVI:
         else:
             x = value
             return (1 - self._k) * x if x < 0 else (1 + self._k) * x
+    
+    def _get_random_action(self):
+        return int(random.choice([i for i in range(0, self._num_actions)]))
+    
+    def _build_PI0(self, random=True, proper=False):
+        PI0 = {}
+        if proper:
+            # Preenche todos os blocos de terra
+            for c in range(0, self._cols): 
+                PI0[(0, c)] = 3
+                PI0[(self._rows - 1, c)] = 2
+            for r in range(0, self._rows - 1):
+                PI0[(r, self._cols - 1)] = 1
+            # Preenche blocos waterfall
+            for r in range(1, self._rows-1):
+                PI0[(r, 0)] = self._get_random_action() if random else 0
+            # Preenche todos os blocos de rio
+            for r in range(1, self._rows-1):
+                for c in range(1, self._cols-1):
+                    PI0[(r, c)] = self._get_random_action() if random else 0
+        else:
+            for r in range(0, self._rows):
+                for c in range(0, self._cols):
+                    PI0[(r, c)] = self._get_random_action() if random else 0
+        
+        return PI0
             
     def _build_V0(self):
         V0 = {}
@@ -112,6 +139,21 @@ class PieceLinear_RSVI:
     def _get_values_from_dict(self, d):
         V = np.array([v[1] for v in d.items()])
         return V
+    
+    def define_politica(self, V, goal_state, num_actions):
+        PI = {}
+        for S in V.keys():
+            # if S == goal_state: continue
+                
+            PI[S] = -1
+            action_values = {}
+            for action in range(0, num_actions):
+                next_state = self._next_state(S, action)
+                if next_state != S:
+                    action_values[action] = V[next_state]
+                    
+            PI[S] = min(action_values, key=action_values.get)
+        return PI
         
     def run_converge(self):
         i, time = self.calculate_value()
@@ -144,6 +186,23 @@ class PieceLinear_RSVI:
             
             if self.relative_residual(self._get_values_from_dict(self.V), self._get_values_from_dict(V_prev)):
                 break
+            
+        
+        # self.PI = self.define_politica(self.V, self._goal_state, self._num_actions)
+        # Compute the optimal policy
+        Qi = {}
+        for S in self.V.keys():
+            Qi[S] = {}
+            
+            for a in range(self._num_actions):
+                q = 0
+                for S_next in self.V.keys():
+                    C = self._reward_function(S, a)
+                    q += self._transition_probabilities[a][S][S_next] * self.function_O(Qi1[S_next], Qi1[S][a], C)
+
+                Qi[S][a] = Qi1[S][a] + self._alpha * q
+                    
+            self.PI[S] = min(Qi[S], key=Qi[S].get)
                 
         return self._i, 0
         
@@ -155,15 +214,47 @@ class PieceLinear_RSVI:
         X = self._piecewise_linear_transformation((C + self._gamma * min(Q1min) - Q2))
 
         return X
+    
+    def single_function_O(self, Q1, Q2, C):
+        X = self._piecewise_linear_transformation((C + self._gamma * Q1 - Q2))
+
+        return X
         
     def relative_residual(self, V1, V2):
-        residual = []
-        for i in range(len(V1)):
-            try:
-                residual.append(abs((V1[i] - V2[i])/V2[i]))
-            except:
-                residual.append(np.inf)
-        # print('Residual: ', max(residual), end='\r')
+        residual = np.abs(np.subtract(V1, V2)/V2)
+        # print('Residual: ', max(residual))
         return max(residual) <= self._epsilon
     
-    
+    def calculate_value_for_policy(self, Pi, vl_K):
+        V = copy.deepcopy(self._build_V0())
+        i = 0
+        
+        while True:
+            accumulate_cost = 0
+            V_prev = copy.deepcopy(V)
+            
+            for S in V.keys():
+                a = Pi[S]
+                C = self._reward_function(S, a)
+                
+                # q = 0
+                # for S_next in V.keys():
+                #     q += self._transition_probabilities[a][S][S_next] * \
+                #         self.single_function_O(V[S_next], V[S], C)
+                
+                O = self.single_function_O(self._get_values_from_dict(V), V[S], C)
+                T = self._get_values_from_dict(self._transition_probabilities[a][S])
+                # print(f'~ DEBUG - O: [{O}] / T: [{T}]')
+                q = sum(T * O)
+
+                V[S] = V[S] + self._alpha * q
+                accumulate_cost += V[S]
+                # print(f'S: [{S}] / Qi[S]: [{Qi1[S]}] / C: [{C}] / Qp: [{self.Qi[S][a]}] / q: [{q}]')
+        
+            # print(f'--- V: {V} \n V_PREV: {V_prev}')
+            i += 1
+            
+            if self.relative_residual(self._get_values_from_dict(V), self._get_values_from_dict(V_prev)):
+                break
+                
+        return accumulate_cost

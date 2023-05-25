@@ -136,7 +136,6 @@ class RS_ValueIteration:
     def calculate_value(self):
         while True:
             V_prev = copy.deepcopy(self.V)
-            Qi1 = copy.deepcopy(self.Qi)
             
             for S in self.V.keys():
                 for a in range(self._num_actions):
@@ -158,3 +157,48 @@ class RS_ValueIteration:
             
             if self.verify_residual(self._get_values_from_dict(self.V), self._get_values_from_dict(V_prev)):
                 break
+            
+        # Compute the optimal policy
+        for S in self.V.keys():
+            for a in range(self._num_actions):
+                q = 0
+                for S_next in self.V.keys():
+                    q += self._transition_probabilities[a][S][S_next] * self.V[S_next]
+
+                C = self._cost_function(S, a)
+                self.Qi[S][a] = np.exp(self._lambda * C) * q
+                    
+            self.PI[S] = min(self.Qi[S], key=self.Qi[S].get)
+            
+    def calculate_value_for_policy(self, Pi, vl_lambda):
+        V = copy.deepcopy(self._build_V0())
+        i = 0
+        
+        while True:
+            accumulate_cost = 0
+            V_prev = copy.deepcopy(V)
+            
+            for S in Pi.keys():
+                a = Pi[S]
+                
+                q = sum(self._get_transition(S, a) * self._get_values_from_dict(V))
+                # for S_next in Pi.keys():
+                #     q += self._transition_probabilities[a][S][S_next] * V[S_next]
+
+                C = self._cost_function(S, a)
+                
+                if S == self._goal_state:
+                    V[S] = -np.sign(vl_lambda)
+                    accumulate_cost += -np.sign(vl_lambda)
+                else:
+                    V[S] = np.exp(vl_lambda * C) * q
+                    accumulate_cost += np.exp(vl_lambda * C) * q
+            
+            print(f'Exp: {np.exp(vl_lambda * C)} / q: {q} / Acc_Cost: [{accumulate_cost}] ')
+            # print(f'V: {V} \n V_Prev: {V_prev} \n\n\n')
+            i += 1
+        
+            if self.verify_residual(self._get_values_from_dict(V), self._get_values_from_dict(V_prev)):
+                break
+            
+        return accumulate_cost

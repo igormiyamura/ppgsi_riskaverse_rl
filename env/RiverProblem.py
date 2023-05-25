@@ -84,6 +84,7 @@ class RiverProblem:
                         else: # Deterministico
                             self.transition_prob[action][(row, col)][(new_row, new_col)] = 1
                     elif block_type[(row, col)] == 'goal':
+                        self.transition_prob[action][(row, col)][(row, col)] = 1
                         self.transition_prob[action][(row, col)][(new_row, new_col)] = 0
                     else:
                         raise '[build_self.transition_probabilities](!) Tipo de Bloco não identificado.'

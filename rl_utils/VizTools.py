@@ -22,7 +22,7 @@ class VizTools:
                 best_action = -1
                 action_values = {}
                 for action in range(0, num_actions):
-                    next_state = model_obj._next_state(S, action)
+                    next_state = model_obj._env._next_state(S, action)
                     if next_state != S:
                         action_values[action] = V[next_state]
                         
@@ -53,6 +53,10 @@ class VizTools:
         
         f, a = plt.subplots(figsize=(18, 6))
         f = plt.title(f'{str_title} - {num_iterations} it.', fontsize = 16)
+        
+        ax.add_patch(Rectangle((3, 4), 1, 1, fill=False, edgecolor='blue', lw=3))
+        ax.add_patch(Rectangle((3, 4), 1, 1, fill=False, edgecolor='blue', lw=3))
+        
         self.visualize_policy_arrows(model_obj, PI, goal_state, num_actions, 'PI')
         sns.heatmap(df, cmap="crest_r") # annot=annot,
         plt.show()

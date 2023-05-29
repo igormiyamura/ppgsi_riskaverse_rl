@@ -3,15 +3,16 @@ import numpy as np, copy, random
 from rl_utils.VizTools import VizTools
 
 class PieceLinear_RSVI:
-    def __init__(self, grid_size, goal_state, transition_probabilities, 
+    def __init__(self, env, transition_probabilities, 
                  costs, k, alpha, gamma, num_actions=4, epsilon=0.001, river_flow=None) -> None:
         
         self.viz_tools = VizTools()
+        self._env = env
         
         self._river_flow = river_flow
-        self._grid_size = grid_size
-        self._rows, self._cols = grid_size[0], grid_size[1]
-        self._goal_state = goal_state
+        self._grid_size = self._env._grid_size
+        self._rows, self._cols = self._env._grid_size[0], self._env._grid_size[1]
+        self._goal_state = self._env._goal_state
         self._num_actions = num_actions
         self._k = k
         self._alpha = alpha
@@ -51,9 +52,6 @@ class PieceLinear_RSVI:
             x = value
             return (1 - self._k) * x if x < 0 else (1 + self._k) * x
     
-    def _get_random_action(self):
-        return int(random.choice([i for i in range(0, self._num_actions)]))
-    
     def _build_PI0(self, random=True, proper=False):
         PI0 = {}
         if proper:
@@ -65,15 +63,15 @@ class PieceLinear_RSVI:
                 PI0[(r, self._cols - 1)] = 1
             # Preenche blocos waterfall
             for r in range(1, self._rows-1):
-                PI0[(r, 0)] = self._get_random_action() if random else 0
+                PI0[(r, 0)] = self._env._get_random_action(self._num_actions) if random else 0
             # Preenche todos os blocos de rio
             for r in range(1, self._rows-1):
                 for c in range(1, self._cols-1):
-                    PI0[(r, c)] = self._get_random_action() if random else 0
+                    PI0[(r, c)] = self._env._get_random_action(self._num_actions) if random else 0
         else:
             for r in range(0, self._rows):
                 for c in range(0, self._cols):
-                    PI0[(r, c)] = self._get_random_action() if random else 0
+                    PI0[(r, c)] = self._env._get_random_action(self._num_actions) if random else 0
         
         return PI0
             
@@ -123,18 +121,6 @@ class PieceLinear_RSVI:
     def _get_V(self):
         V = np.array([v[1] for v in self.V.items()])
         return V
-    
-    def _next_state(self, state, action):
-        x, y = state
-        if action == 0:   # up
-            x = max(x - 1, 0)
-        elif action == 1: # down
-            x = min(x + 1, self._rows - 1)
-        elif action == 2: # left
-            y = max(y - 1, 0)
-        elif action == 3: # right
-            y = min(y + 1, self._cols - 1)
-        return (x, y)
         
     def _get_values_from_dict(self, d):
         V = np.array([v[1] for v in d.items()])

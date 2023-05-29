@@ -1,10 +1,10 @@
 
-import numpy as np
+import numpy as np, random
 import time
 
 from rl_utils.VizTools import VizTools
 
-class ValueIteration:
+class Neutral_PI:
     def __init__(self, grid_size, goal_state, transition_probabilities, costs, 
                  num_actions=4, discount_factor=0.95, epsilon=0.001, river_flow=None) -> None:
         self.viz_tools = VizTools()
@@ -21,14 +21,24 @@ class ValueIteration:
         self._discount_factor = discount_factor
         self._epsilon = epsilon
         self.V = self._build_V0()
+        self.PI = self._build_PI0()
+        self._first_run = True
+        self._i = 0
     
     def __repr__(self):
-        self.viz_tools.visualize_V(self, self.V, self._grid_size, 4, self._goal_state, 0, 
+        self.viz_tools.visualize_V(self, self.V, self._grid_size, 4, self._goal_state, self._i, 
                                str_title=f'Policy Iteration')
         
         return f'RiverProblem - \n' + \
             f'Discount Factor: {self._discount_factor} \n' + \
             f'Epsilon: {self._epsilon} \n'
+    
+    def _build_PI0(self, random=True):
+        PI0 = {}
+        for r in range(0, self._rows):
+            for c in range(0, self._cols):
+                PI0[(r, c)] = self._get_random_action() if random else 0
+        return PI0
     
     def _build_V0(self):
         V0 = {}
@@ -36,12 +46,15 @@ class ValueIteration:
             for c in range(0, self._cols):
                 V0[(r, c)] = 0
         return V0
+    
+    def _get_random_action(self):
+        return int(random.choice([i for i in range(0, self._num_actions)]))
         
     def _reward_function(self, S, action):
         reward = self._costs[action]
         
         # Caso ele esteja na casa a direita do objetivo e a ação seja ir para esquerda
-        if action == 2 and S == (self._goal_state[0], self._goal_state[1] + 1):
+        if S == self._goal_state:
             reward = 0
         
         return reward
@@ -67,44 +80,56 @@ class ValueIteration:
             y = min(y + 1, self._cols - 1)
         return (x, y)
         
-    def verify_residual(self, V, V_ANT):
-        res = max(np.abs(np.subtract(V, V_ANT)))
-        print(f'> Residual: {res}', end='\r')
-        return res < 2 * self._epsilon
-    
+    def run_converge(self):
+        start_time = time.time()
+
+        while(self._first_run or (self.PI != self.PI_ANT)):
+            print(f'Iteração: {self._i}', end='\r')
+            self.step()
+            
+            self._first_run = False
+            self._i += 1
+            
+        return self._i, (time.time() - start_time)
+        
     def step(self):
-        V = {}
+        self.policy_evaluation()
+        self.policy_improvement()
+    
+    def policy_evaluation(self):
+        V, V_ANT, i = {}, self.V.copy(), 0
+        
+        while(i == 0 or \
+            np.max(np.abs( np.subtract(list(self.V.values()), list(V_ANT.values())) )) > 2 * self._epsilon):
+            
+            V_ANT = self.V.copy()
+            for S in self.V.keys():
+                a = self.PI[S]
+                
+                bellman = self._reward_function(S, a) + self._discount_factor * \
+                    (self._get_transition(S, a) * self._get_V()).sum()
+                
+                V[S] = bellman
+            
+            self.V = V.copy()
+            i += 1
+        return self.V
+    
+    def policy_improvement(self):
+        self.PI_ANT = self.PI.copy()
+        
+        pi_improved = {}
         for S in self.V.keys():
-            bellman = []
+            bellman = {}
             for a in range(0, self._num_actions):
                 b = self._reward_function(S, a) + self._discount_factor * \
                     (self._get_transition(S, a) * self._get_V()).sum()
                     
-                bellman.append(b)
+                bellman[a] = b
                 
-            V[S] = min(bellman)
+            pi_improved[S] = min(bellman, key=bellman.get)
         
-        self.V = V
-        return self.V
+        self.PI = pi_improved
+        return self.PI
     
-    def run_converge(self):
-        start_time = time.time()
-        
-        qtd_iteracoes = 0
-        first = True
-
-        while True:
-            first = False
-
-            V_k = [i[1] for i in self.V.items()]
-
-            self.step()
-            V_k1 = [i[1] for i in self.V.items()]
-            
-            qtd_iteracoes += 1
-            
-            if self.verify_residual(V_k1, V_k):
-                break
-            
-        return qtd_iteracoes, (time.time() - start_time)
     

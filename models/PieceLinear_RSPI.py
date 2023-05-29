@@ -7,14 +7,15 @@ from rl_utils.VizTools import VizTools
 np.seterr(divide='ignore', invalid='ignore')
 
 class PieceLinear_RSPI:
-    def __init__(self, grid_size, goal_state, transition_probabilities, 
+    def __init__(self, env, transition_probabilities, 
                  costs, k, alpha, gamma, num_actions=4, epsilon=0.001, river_flow=None) -> None:
         self.viz_tools = VizTools()
+        self._env = env
         
         self._river_flow = river_flow
-        self._grid_size = grid_size
-        self._rows, self._cols = grid_size[0], grid_size[1]
-        self._goal_state = goal_state
+        self._grid_size = self._env._grid_size
+        self._rows, self._cols = self._env._grid_size[0], self._env._grid_size[1]
+        self._goal_state = self._env._goal_state
         self._num_actions = num_actions
         self._k = k
         self._alpha = alpha
@@ -67,15 +68,15 @@ class PieceLinear_RSPI:
                 PI0[(r, self._cols - 1)] = 1
             # Preenche blocos waterfall
             for r in range(1, self._rows-1):
-                PI0[(r, 0)] = self._get_random_action() if random else 0
+                PI0[(r, 0)] = self._env._get_random_action(self._num_actions) if random else 0
             # Preenche todos os blocos de rio
             for r in range(1, self._rows-1):
                 for c in range(1, self._cols-1):
-                    PI0[(r, c)] = self._get_random_action() if random else 0
+                    PI0[(r, c)] = self._env._get_random_action(self._num_actions) if random else 0
         else:
             for r in range(0, self._rows):
                 for c in range(0, self._cols):
-                    PI0[(r, c)] = self._get_random_action() if random else 0
+                    PI0[(r, c)] = self._env._get_random_action(self._num_actions) if random else 0
         
         return PI0
     

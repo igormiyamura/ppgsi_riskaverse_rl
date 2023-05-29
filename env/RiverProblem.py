@@ -4,7 +4,8 @@ import random
 class RiverProblem:
     
     def __init__(self, grid_size, goal_state, dead_end=True) -> None:
-        self._t_row, self._t_col = grid_size[0], grid_size[1]
+        self._grid_size = grid_size
+        self._t_row, self._t_col = self._grid_size[0], self._grid_size[1]
         self._goal_state = goal_state
         self._dead_end = dead_end
     

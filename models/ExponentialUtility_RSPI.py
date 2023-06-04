@@ -11,12 +11,11 @@ class ExponentialUtility_RSPI:
                  vl_lambda, num_actions=4, epsilon=0.001, river_flow=None, certainty_equivalent=False, 
                  explogsum=False, threshold=1000, QUIET=True) -> None:
         self.viz_tools = VizTools()
-        self._env = env
+        self.env = env
         
+        self._env_name = self.env._env_name
+        self._goal_state = self.env._goal_state
         self._river_flow = river_flow
-        self._grid_size = env._grid_size
-        self._rows, self._cols = env._grid_size[0], env._grid_size[1]
-        self._goal_state = env._goal_state
         self._num_actions = num_actions
         self._lambda = vl_lambda
         
@@ -28,8 +27,9 @@ class ExponentialUtility_RSPI:
         self._certainty_equivalent = certainty_equivalent
         self._explogsum = explogsum
         
-        self.V = self._build_V0()
-        self.PI = self._build_PI0(True, True)
+        self.V = self.env._build_V0(initial_value=self._define_initial_value_V0())
+        self.PI = self.env._build_PI0(initial_value=0)
+        
         self._first_run = True
         self._i = 0
         self.QUIET = QUIET
@@ -39,58 +39,41 @@ class ExponentialUtility_RSPI:
         self.EF = ExponentialFunctions()
         
     def __repr__(self):
-        self.viz_tools.visualize_V(self, self.V, self._grid_size, 4, self._goal_state, self._i, 
+        self.viz_tools.visualize_V(self, self.V, self.env._grid_size, 4, self._goal_state, self._i, 
                                str_title=f'Exponential Utility Function - RSMDP - Lambda {self._lambda}')
         
         return f'RiverProblem - \n' + \
             f'Lambda: {self._lambda} \n' + \
             f'Epsilon: {self._epsilon} \n'
     
-    def _build_PI0(self, random=True, proper=False):
-        PI0 = {}
-        if proper:
-            # Preenche todos os blocos de terra
-            for c in range(0, self._cols): 
-                PI0[(0, c)] = 3
-                PI0[(self._rows - 1, c)] = 2
-            for r in range(0, self._rows - 1):
-                PI0[(r, self._cols - 1)] = 1
-            # Preenche blocos waterfall
-            for r in range(1, self._rows-1):
-                PI0[(r, 0)] = self._env._get_random_action(self._num_actions) if random else 0
-            # Preenche todos os blocos de rio
-            for r in range(1, self._rows-1):
-                for c in range(1, self._cols-1):
-                    PI0[(r, c)] = self._env._get_random_action(self._num_actions) if random else 0
-        else:
-            for r in range(0, self._rows):
-                for c in range(0, self._cols):
-                    PI0[(r, c)] = self._env._get_random_action(self._num_actions) if random else 0
+    def _define_initial_value_V0(self):
+        if self._env_name == 'DrivingLicense': return np.sign(self._lambda)
+        elif self._env_name == 'RiverProblem': return np.sign(self._lambda)
+        else: return 0
+    
+    def _get_transition(self, S, a):
+        if self._env_name == 'DrivingLicense': transition_matrix = self._transition_probabilities[S][a]
+        elif self._env_name == 'RiverProblem': transition_matrix = self._transition_probabilities[a][S]
+        t = uf._get_values_from_dict(transition_matrix)
+        return t    
         
-        return PI0
-    
-    def _build_V0(self):
-        V0 = {}
-        for r in range(0, self._rows):
-            for c in range(0, self._cols):
-                # Preenche o V0 com o negativo do sinal do Lambda
-                V0[(r, c)] = np.sign(self._lambda)
-        return V0
-    
     def _cost_function(self, S, action):
+        if self._env_name == 'DrivingLicense':
+            if S == 'sG': return 0
+        
         reward = self._costs[action]
         
-        # Caso ele esteja na casa a direita do objetivo e a ação seja ir para esquerda
-        if S == (self._goal_state[0], self._goal_state[1]):
-            reward = 0
-        
+        if self._env_name == 'RiverProblem':
+            # Caso ele esteja na casa a direita do objetivo e a ação seja ir para esquerda
+            if S == self._goal_state:
+                reward = 0
+                
         return reward
     
     def run_converge(self):
         start_time = time.time()
 
-        while(self._first_run or (self.PI != self.PI_ANT)):
-            print(f'[L: {self._lambda}] Iteração: {self._i}...', end='\r')
+        while(self._first_run or (self.PI != self.PI_ANT) and self._i < self._threshold):
             self.step()
             
             self._first_run = False
@@ -115,7 +98,7 @@ class ExponentialUtility_RSPI:
                 else:
                     C = self._cost_function(S, pi_a)
                     l = self._lambda
-                    T = uf._get_values_from_dict(self._transition_probabilities[pi_a][S])
+                    T = self._get_transition(S, pi_a) # uf._get_values_from_dict(self._transition_probabilities[pi_a][S])
                     V = uf._get_values_from_dict(self.V)
                     
                     if not self._explogsum:
@@ -126,7 +109,7 @@ class ExponentialUtility_RSPI:
                         KAI = max(kai)
                         bellman = C + KAI / l + (1 / l) * np.log(sum(np.exp(kai - KAI)))
                         
-                    if not self.QUIET: print(f'({S}) Lambda: {self._lambda} / C: {C} / exp(lC): {np.exp(l * C)} / TV: {TV} / Bellman: {bellman}')
+                    if not self.QUIET: print(f'({S}) Lambda: {self._lambda} / C: {C} / exp(lC): {np.exp(l * C)} / Bellman: {bellman}')
                 
                 NEW_V[S] = bellman
             
@@ -151,7 +134,7 @@ class ExponentialUtility_RSPI:
             bellman = {}
             # improve the current policy by doing  the following update for every s ∈ S
             for a in range(0, self._num_actions):
-                TV = uf._get_values_from_dict(self._transition_probabilities[a][S]) * uf._get_values_from_dict(self.V)
+                TV = self._get_transition(S, a) * uf._get_values_from_dict(self.V)
                 
                 bellman[a] = np.exp(self._lambda * self._cost_function(S, a)) * sum(TV)
                 
@@ -174,7 +157,7 @@ class ExponentialUtility_RSPI:
                     C = self._cost_function(S, pi_a)
                     l = vl_lambda
                     
-                    T = uf._get_values_from_dict(self._transition_probabilities[pi_a][S])
+                    T = self._get_transition(S, pi_a) # uf._get_values_from_dict(self._transition_probabilities[pi_a][S])
                     V = uf._get_values_from_dict(self.V)
                     
                     if not self._explogsum:

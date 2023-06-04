@@ -22,7 +22,7 @@ class VizTools:
                 best_action = -1
                 action_values = {}
                 for action in range(0, num_actions):
-                    next_state = model_obj._env._next_state(S, action)
+                    next_state = model_obj.env._next_state(S, action)
                     if next_state != S:
                         action_values[action] = V[next_state]
                         

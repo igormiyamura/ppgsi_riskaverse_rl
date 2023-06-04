@@ -5,14 +5,14 @@ import time
 from rl_utils.VizTools import VizTools
 
 class Neutral_VI:
-    def __init__(self, grid_size, goal_state, transition_probabilities, costs, 
+    def __init__(self, env, transition_probabilities, costs, 
                  num_actions=4, discount_factor=0.95, epsilon=0.001, river_flow=None) -> None:
+        self.env = env
         self.viz_tools = VizTools()
         
+        self._env_name = self.env._env_name
+                
         self._river_flow = river_flow
-        self._grid_size = grid_size
-        self._rows, self._cols = grid_size[0], grid_size[1]
-        self._goal_state = goal_state
         self._num_actions = num_actions
         
         self._transition_probabilities = transition_probabilities
@@ -20,34 +20,33 @@ class Neutral_VI:
         
         self._discount_factor = discount_factor
         self._epsilon = epsilon
-        self.V = self._build_V0()
+        self.V = env._build_V0(initial_value=0)
+        self.PI = env._build_PI0(initial_value=-1)
     
-    def __repr__(self):
-        self.viz_tools.visualize_V(self, self.V, self._grid_size, 4, self._goal_state, 0, 
-                               str_title=f'Policy Iteration')
+    # def __repr__(self):
+    #     self.viz_tools.visualize_V(self, self.V, self._grid_size, 4, self._goal_state, 0, 
+    #                            str_title=f'Policy Iteration')
         
-        return f'RiverProblem - \n' + \
-            f'Discount Factor: {self._discount_factor} \n' + \
-            f'Epsilon: {self._epsilon} \n'
+    #     return f'{self.env._env_name} - \n' + \
+    #         f'Discount Factor: {self._discount_factor} \n' + \
+    #         f'Epsilon: {self._epsilon} \n'
     
-    def _build_V0(self):
-        V0 = {}
-        for r in range(0, self._rows):
-            for c in range(0, self._cols):
-                V0[(r, c)] = 0
-        return V0
-        
     def _reward_function(self, S, action):
+        if self._env_name == 'DrivingLicense':
+            if S == 'sG': return 0
+        
         reward = self._costs[action]
         
-        # Caso ele esteja na casa a direita do objetivo e a ação seja ir para esquerda
-        if action == 2 and S == (self._goal_state[0], self._goal_state[1] + 1):
-            reward = 0
-        
+        if self._env_name == 'RiverProblem':
+            # Caso ele esteja na casa a direita do objetivo e a ação seja ir para esquerda
+            if S == self._goal_state:
+                reward = 0
+                
         return reward
     
     def _get_transition(self, S, a):
-        transition_matrix = self._transition_probabilities[a][S]
+        if self._env_name == 'DrivingLicense': transition_matrix = self._transition_probabilities[S][a]
+        elif self._env_name == 'RiverProblem': transition_matrix = self._transition_probabilities[a][S]
         t = np.array([v[1] for v in transition_matrix.items()])
         return t
     
@@ -69,22 +68,26 @@ class Neutral_VI:
         
     def verify_residual(self, V, V_ANT):
         res = max(np.abs(np.subtract(V, V_ANT)))
-        print(f'> Residual: {res}', end='\r')
+        # print(f'> Residual: {res}', end='\r')
         return res < 2 * self._epsilon
     
     def step(self):
         V = {}
+        PI = {}
+        
         for S in self.V.keys():
-            bellman = []
+            bellman = {}
             for a in range(0, self._num_actions):
                 b = self._reward_function(S, a) + self._discount_factor * \
                     (self._get_transition(S, a) * self._get_V()).sum()
                     
-                bellman.append(b)
+                bellman[a] = b
                 
-            V[S] = min(bellman)
+            PI[S] = min(bellman, key=bellman.get)
+            V[S] = min([v[1] for v in bellman.items()])
         
         self.V = V
+        self.PI = PI
         return self.V
     
     def run_converge(self):

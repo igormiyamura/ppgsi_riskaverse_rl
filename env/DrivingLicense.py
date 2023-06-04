@@ -1,59 +1,89 @@
 
-import random, numpy as np
+import random
 
-class RiverProblem:
+class DrivingLicense:
     
-    def __init__(self, grid_size, goal_state, dead_end=True) -> None:
-        self._env_name = 'RiverProblem'
+    def __init__(self, num_states, num_actions) -> None:
+        self._env_name = 'DrivingLicense'
         
-        self._num_actions = 4
-        self._grid_size = grid_size
-        self._t_row, self._t_col = self._grid_size[0], self._grid_size[1]
-        self._goal_state = goal_state
-        self._dead_end = dead_end
-    
-    def _get_random_action(self, num_actions):
-        return int(random.choice([i for i in range(0, num_actions)]))
-    
-    def _build_PI0(self, initial_value=0, random=False, proper=False):
-        PI0 = {}
-        if proper:
-            # Preenche todos os blocos de terra
-            for c in range(0, self._t_col): 
-                PI0[(0, c)] = 3
-                PI0[(self._t_row - 1, c)] = 2
-            for r in range(0, self._t_row - 1):
-                PI0[(r, self._t_col - 1)] = 1
-            # Preenche blocos waterfall
-            for r in range(1, self._t_row-1):
-                PI0[(r, 0)] = self.env._get_random_action(self._num_actions) if random else initial_value
-            # Preenche todos os blocos de rio
-            for r in range(1, self._t_row-1):
-                for c in range(1, self._t_col-1):
-                    PI0[(r, c)] = self.env._get_random_action(self._num_actions) if random else initial_value
-        else:
-            for r in range(0, self._t_row):
-                for c in range(0, self._t_col):
-                    PI0[(r, c)] = self.env._get_random_action(self._num_actions) if random else initial_value
+        self._num_states = num_states
+        self._num_actions = num_actions
+        self._goal_state = 'sG'
         
-        return PI0
+        self._actions = [a for a in range(0, self._num_actions)]
+        self._states = [s for s in range(0, self._num_states)]
+        self._states.append(self._goal_state)
+        
+    def _approved_probability(self, x, y):
+        return 0.08 * x + 0.04 * y
+        
+    def _verify_sum_probabilities(self, transition_probabilities):
+        is_ok, dict_verification = True, {}
+        for action in transition_probabilities.keys():
+            for state in transition_probabilities[action].keys():
+                dict_verification[(action, state)] = True if sum([v[1] for v in transition_probabilities[action][state].items()]) == 1 else False
+
+                if dict_verification[(action, state)] == False:
+                    print(action, state, [v[1] for v in transition_probabilities[action][state].items()])
+                    is_ok = False
+                        
+        return is_ok, dict_verification
     
     def _build_V0(self, initial_value=0):
-        V0 = {}
-        for r in range(0, self._t_row):
-            for c in range(0, self._t_col):
-                # Preenche o V0 com o negativo do sinal do Lambda
-                V0[(r, c)] = initial_value
-        return V0
+        V = {}
+        
+        for s in self._states:
+            V[s] = initial_value
+            
+        return V
+    
+    def _build_PI0(self, initial_value=-1):
+        PI = {}
+        
+        for s in self._states:
+            PI[s] = initial_value
+            
+        return PI
     
     def _build_Q0(self, initial_value=0):
         Q0 = {}
-        for r in range(0, self._t_row):
-            for c in range(0, self._t_col):
-                Q0[(r, c)] = {}
-                for a in range(self._num_actions):
-                    Q0[(r, c)][a] = initial_value
+        for s in self._states:
+            Q0[s] = {}
+            for a in self._actions:
+                Q0[s][a] = 0
         return Q0
+    
+    def build_default_states_action_transition_dictionary(self, states, actions):
+        res = {}
+        
+        for s in states:
+            res[s] = {}
+            for a in range(0, actions):
+                res[s][a] = {}
+                for s_next in states:
+                    res[s][a][s_next] = 0
+        
+        return res
+        
+    def build_transition_probabilities(self):
+        T = self.build_default_states_action_transition_dictionary(self._states, self._num_actions)
+        
+        for s in T.keys():
+            for a in T[s].keys():
+                if s == 'sG':
+                    T[s][a]['sG'] = 1
+                else:
+                    T[s][a]['sG'] = self._approved_probability(s, a)
+                    T[s][a][min(s + a, 10)] = 1 - self._approved_probability(s, a)
+        
+        self._verify_sum_probabilities(T)
+        
+        return T
+        
+    """
+        
+    def _get_random_action(self, num_actions):
+        return int(random.choice([i for i in range(0, num_actions)]))
     
     def _next_state(self, state, action):
         x, y = state
@@ -162,3 +192,4 @@ class RiverProblem:
                     is_ok = False
                         
         return is_ok, dict_verification
+    """

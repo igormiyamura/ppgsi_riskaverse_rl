@@ -7,12 +7,11 @@ class PieceLinear_RSVI:
                  costs, k, alpha, gamma, num_actions=4, epsilon=0.001, river_flow=None) -> None:
         
         self.viz_tools = VizTools()
-        self._env = env
+        self.env = env
+        self._env_name = self.env._env_name
         
         self._river_flow = river_flow
-        self._grid_size = self._env._grid_size
-        self._rows, self._cols = self._env._grid_size[0], self._env._grid_size[1]
-        self._goal_state = self._env._goal_state
+        self._goal_state = self.env._goal_state
         self._num_actions = num_actions
         self._k = k
         self._alpha = alpha
@@ -22,19 +21,21 @@ class PieceLinear_RSVI:
         self._costs = costs
         self._epsilon = epsilon
         
-        self.C = self._build_costs()
-        self.V = self._build_V0()
-        self.Qi1 = self._build_Q0()
-        self.Qi = self._build_Q0()
-        self.PI = self._build_PI0(True, True)
+        self.V = self.env._build_V0(initial_value=0)
+        self.Qi1 = self.env._build_Q0(initial_value=0)
+        self.Qi = self.env._build_Q0(initial_value=0)
+        self.PI = self.env._build_PI0(initial_value=0)
         
     def __repr__(self):
-        self.viz_tools.visualize_V(self, self.V, self._grid_size, 4, self._goal_state, self._i, 
-                               str_title=f'Piecewise Linear VI - RF: {self._river_flow} / k: {self._k}')
-        return '> Visualização da Política \n' + \
-            f'k: {self._k} \n' + \
-            f'alpha: {self._alpha} \n' + \
-            f'gamma: {self._gamma} '
+        if self._env_name == 'RiverProblem':
+            self.viz_tools.visualize_V(self, self.V, self.env._grid_size, 4, self.env._goal_state, self._i, 
+                                str_title=f'Piecewise Linear VI - RF: {self._river_flow} / k: {self._k}')
+            return '> Visualização da Política \n' + \
+                f'k: {self._k} \n' + \
+                f'alpha: {self._alpha} \n' + \
+                f'gamma: {self._gamma} '
+        else:
+            return ''
             
     def _verify_alpha(self):
         if (self._alpha <= 0) or (self._alpha > (1 + abs(self._k)) ** (-1)): raise Exception(f'Valor de alpha [{self._alpha}] inválido.')
@@ -52,71 +53,76 @@ class PieceLinear_RSVI:
             x = value
             return (1 - self._k) * x if x < 0 else (1 + self._k) * x
     
-    def _build_PI0(self, random=True, proper=False):
-        PI0 = {}
-        if proper:
-            # Preenche todos os blocos de terra
-            for c in range(0, self._cols): 
-                PI0[(0, c)] = 3
-                PI0[(self._rows - 1, c)] = 2
-            for r in range(0, self._rows - 1):
-                PI0[(r, self._cols - 1)] = 1
-            # Preenche blocos waterfall
-            for r in range(1, self._rows-1):
-                PI0[(r, 0)] = self._env._get_random_action(self._num_actions) if random else 0
-            # Preenche todos os blocos de rio
-            for r in range(1, self._rows-1):
-                for c in range(1, self._cols-1):
-                    PI0[(r, c)] = self._env._get_random_action(self._num_actions) if random else 0
-        else:
-            for r in range(0, self._rows):
-                for c in range(0, self._cols):
-                    PI0[(r, c)] = self._env._get_random_action(self._num_actions) if random else 0
+    # def _build_PI0(self, random=True, proper=False):
+    #     PI0 = {}
+    #     if proper:
+    #         # Preenche todos os blocos de terra
+    #         for c in range(0, self._cols): 
+    #             PI0[(0, c)] = 3
+    #             PI0[(self._rows - 1, c)] = 2
+    #         for r in range(0, self._rows - 1):
+    #             PI0[(r, self._cols - 1)] = 1
+    #         # Preenche blocos waterfall
+    #         for r in range(1, self._rows-1):
+    #             PI0[(r, 0)] = self.env._get_random_action(self._num_actions) if random else 0
+    #         # Preenche todos os blocos de rio
+    #         for r in range(1, self._rows-1):
+    #             for c in range(1, self._cols-1):
+    #                 PI0[(r, c)] = self.env._get_random_action(self._num_actions) if random else 0
+    #     else:
+    #         for r in range(0, self._rows):
+    #             for c in range(0, self._cols):
+    #                 PI0[(r, c)] = self.env._get_random_action(self._num_actions) if random else 0
         
-        return PI0
+    #     return PI0
             
-    def _build_V0(self):
-        V0 = {}
-        for r in range(0, self._rows):
-            for c in range(0, self._cols):
-                V0[(r, c)] = 0
-        return V0
+    # def _build_V0(self):
+    #     V0 = {}
+    #     for r in range(0, self._rows):
+    #         for c in range(0, self._cols):
+    #             V0[(r, c)] = 0
+    #     return V0
     
-    def _build_Q0(self):
-        Q0 = {}
-        for r in range(0, self._rows):
-            for c in range(0, self._cols):
-                Q0[(r, c)] = {}
-                for a in range(self._num_actions):
-                    Q0[(r, c)][a] = 0
-        return Q0
+    # def _build_Q0(self):
+    #     Q0 = {}
+    #     for r in range(0, self._rows):
+    #         for c in range(0, self._cols):
+    #             Q0[(r, c)] = {}
+    #             for a in range(self._num_actions):
+    #                 Q0[(r, c)][a] = 0
+    #     return Q0
     
-    def _build_costs(self):
-        C = {}
-        for r in range(0, self._rows):
-            for c in range(0, self._cols):
-                C[(r, c)] = 1
-        C[self._goal_state] = 0
+    # def _build_costs(self):
+    #     C = {}
+    #     for r in range(0, self._rows):
+    #         for c in range(0, self._cols):
+    #             C[(r, c)] = 1
+    #     C[self._goal_state] = 0
         
-        return C
+    #     return C
         
     def _reward_function(self, S, action):
+        if self._env_name == 'DrivingLicense':
+            if S == 'sG': return 0
+        
         reward = self._costs[action]
         
-        # Caso ele esteja na casa a direita do objetivo e a ação seja ir para esquerda
-        if S == (self._goal_state[0], self._goal_state[1]):
-            reward = 0
-        
+        if self._env_name == 'RiverProblem':
+            # Caso ele esteja na casa a direita do objetivo e a ação seja ir para esquerda
+            if S == self._goal_state:
+                reward = 0
+                
         return reward
     
-    def _get_transition(self, S, a):
-        transition_matrix = self._transition_probabilities[a][S]
-        t = np.array([v[1] for v in transition_matrix.items()])
-        return t
+    def _get_transition(self, S, a, S_Next):
+        if self._env_name == 'DrivingLicense': transition_matrix = self._transition_probabilities[S][a]
+        elif self._env_name == 'RiverProblem': transition_matrix = self._transition_probabilities[a][S]
+        
+        return transition_matrix[S_Next]
     
-    def _get_costs(self):
-        C = np.array([c[1] for c in self.C.items()])
-        return C
+    # def _get_costs(self):
+    #     C = np.array([c[1] for c in self.C.items()])
+    #     return C
     
     def _get_V(self):
         V = np.array([v[1] for v in self.V.items()])
@@ -157,7 +163,7 @@ class PieceLinear_RSVI:
                     q = 0
                     for S_next in self.V.keys():
                         C = self._reward_function(S, a)
-                        q += self._transition_probabilities[a][S][S_next] * self.function_O(Qi1[S_next], Qi1[S][a], C)
+                        q += self._get_transition(S, a, S_next) * self.function_O(Qi1[S_next], Qi1[S][a], C)
 
                     self.Qi[S][a] = Qi1[S][a] + self._alpha * q
                     
@@ -184,7 +190,7 @@ class PieceLinear_RSVI:
                 q = 0
                 for S_next in self.V.keys():
                     C = self._reward_function(S, a)
-                    q += self._transition_probabilities[a][S][S_next] * self.function_O(Qi1[S_next], Qi1[S][a], C)
+                    q += self._get_transition(S, a, S_next) * self.function_O(Qi1[S_next], Qi1[S][a], C)
 
                 Qi[S][a] = Qi1[S][a] + self._alpha * q
                     
@@ -212,7 +218,7 @@ class PieceLinear_RSVI:
         return max(residual) <= self._epsilon
     
     def calculate_value_for_policy(self, Pi, vl_K):
-        V = copy.deepcopy(self._build_V0())
+        V = copy.deepcopy(self.env._build_V0())
         i = 0
         
         while True:
@@ -229,7 +235,9 @@ class PieceLinear_RSVI:
                 #         self.single_function_O(V[S_next], V[S], C)
                 
                 O = self.single_function_O(self._get_values_from_dict(V), V[S], C)
-                T = self._get_values_from_dict(self._transition_probabilities[a][S])
+                
+                if self._env_name == 'RiverProblem': T = self._get_values_from_dict(self._transition_probabilities[a][S])
+                elif self._env_name == 'DrivingLicense': T = self._get_values_from_dict(self._transition_probabilities[S][a])
                 # print(f'~ DEBUG - O: [{O}] / T: [{T}]')
                 q = sum(T * O)
 

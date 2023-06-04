@@ -5,14 +5,14 @@ import time
 from rl_utils.VizTools import VizTools
 
 class Neutral_PI:
-    def __init__(self, grid_size, goal_state, transition_probabilities, costs, 
+    def __init__(self, env, transition_probabilities, costs, 
                  num_actions=4, discount_factor=0.95, epsilon=0.001, river_flow=None) -> None:
+        self.env = env
         self.viz_tools = VizTools()
         
+        self._env_name = self.env._env_name
+        
         self._river_flow = river_flow
-        self._grid_size = grid_size
-        self._rows, self._cols = grid_size[0], grid_size[1]
-        self._goal_state = goal_state
         self._num_actions = num_actions
         
         self._transition_probabilities = transition_probabilities
@@ -20,8 +20,8 @@ class Neutral_PI:
         
         self._discount_factor = discount_factor
         self._epsilon = epsilon
-        self.V = self._build_V0()
-        self.PI = self._build_PI0()
+        self.V = self.env._build_V0(initial_value=0)
+        self.PI = self.env._build_PI0(initial_value=0)
         self._first_run = True
         self._i = 0
     
@@ -33,34 +33,39 @@ class Neutral_PI:
             f'Discount Factor: {self._discount_factor} \n' + \
             f'Epsilon: {self._epsilon} \n'
     
-    def _build_PI0(self, random=True):
-        PI0 = {}
-        for r in range(0, self._rows):
-            for c in range(0, self._cols):
-                PI0[(r, c)] = self._get_random_action() if random else 0
-        return PI0
+    # def _build_PI0(self, random=True):
+    #     PI0 = {}
+    #     for r in range(0, self._rows):
+    #         for c in range(0, self._cols):
+    #             PI0[(r, c)] = self._get_random_action() if random else 0
+    #     return PI0
     
-    def _build_V0(self):
-        V0 = {}
-        for r in range(0, self._rows):
-            for c in range(0, self._cols):
-                V0[(r, c)] = 0
-        return V0
+    # def _build_V0(self):
+    #     V0 = {}
+    #     for r in range(0, self._rows):
+    #         for c in range(0, self._cols):
+    #             V0[(r, c)] = 0
+    #     return V0
     
     def _get_random_action(self):
         return int(random.choice([i for i in range(0, self._num_actions)]))
         
     def _reward_function(self, S, action):
+        if self._env_name == 'DrivingLicense':
+            if S == 'sG': return 0
+        
         reward = self._costs[action]
         
-        # Caso ele esteja na casa a direita do objetivo e a ação seja ir para esquerda
-        if S == self._goal_state:
-            reward = 0
-        
+        if self._env_name == 'RiverProblem':
+            # Caso ele esteja na casa a direita do objetivo e a ação seja ir para esquerda
+            if S == self._goal_state:
+                reward = 0
+                
         return reward
     
     def _get_transition(self, S, a):
-        transition_matrix = self._transition_probabilities[a][S]
+        if self._env_name == 'DrivingLicense': transition_matrix = self._transition_probabilities[S][a]
+        elif self._env_name == 'RiverProblem': transition_matrix = self._transition_probabilities[a][S]
         t = np.array([v[1] for v in transition_matrix.items()])
         return t
     

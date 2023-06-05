@@ -52,54 +52,6 @@ class PieceLinear_RSVI:
         else:
             x = value
             return (1 - self._k) * x if x < 0 else (1 + self._k) * x
-    
-    # def _build_PI0(self, random=True, proper=False):
-    #     PI0 = {}
-    #     if proper:
-    #         # Preenche todos os blocos de terra
-    #         for c in range(0, self._cols): 
-    #             PI0[(0, c)] = 3
-    #             PI0[(self._rows - 1, c)] = 2
-    #         for r in range(0, self._rows - 1):
-    #             PI0[(r, self._cols - 1)] = 1
-    #         # Preenche blocos waterfall
-    #         for r in range(1, self._rows-1):
-    #             PI0[(r, 0)] = self.env._get_random_action(self._num_actions) if random else 0
-    #         # Preenche todos os blocos de rio
-    #         for r in range(1, self._rows-1):
-    #             for c in range(1, self._cols-1):
-    #                 PI0[(r, c)] = self.env._get_random_action(self._num_actions) if random else 0
-    #     else:
-    #         for r in range(0, self._rows):
-    #             for c in range(0, self._cols):
-    #                 PI0[(r, c)] = self.env._get_random_action(self._num_actions) if random else 0
-        
-    #     return PI0
-            
-    # def _build_V0(self):
-    #     V0 = {}
-    #     for r in range(0, self._rows):
-    #         for c in range(0, self._cols):
-    #             V0[(r, c)] = 0
-    #     return V0
-    
-    # def _build_Q0(self):
-    #     Q0 = {}
-    #     for r in range(0, self._rows):
-    #         for c in range(0, self._cols):
-    #             Q0[(r, c)] = {}
-    #             for a in range(self._num_actions):
-    #                 Q0[(r, c)][a] = 0
-    #     return Q0
-    
-    # def _build_costs(self):
-    #     C = {}
-    #     for r in range(0, self._rows):
-    #         for c in range(0, self._cols):
-    #             C[(r, c)] = 1
-    #     C[self._goal_state] = 0
-        
-    #     return C
         
     def _reward_function(self, S, action):
         if self._env_name == 'DrivingLicense':
@@ -119,11 +71,7 @@ class PieceLinear_RSVI:
         elif self._env_name == 'RiverProblem': transition_matrix = self._transition_probabilities[a][S]
         
         return transition_matrix[S_Next]
-    
-    # def _get_costs(self):
-    #     C = np.array([c[1] for c in self.C.items()])
-    #     return C
-    
+        
     def _get_V(self):
         V = np.array([v[1] for v in self.V.items()])
         return V
@@ -148,8 +96,8 @@ class PieceLinear_RSVI:
         return PI
         
     def run_converge(self):
-        i, time = self.calculate_value()
-        return i, time
+        done = self.calculate_value()
+        return self._i, self.V, self.PI
     
     def calculate_value(self):
         self._i = 0
@@ -196,7 +144,7 @@ class PieceLinear_RSVI:
                     
             self.PI[S] = min(Qi[S], key=Qi[S].get)
                 
-        return self._i, 0
+        return True
         
     def function_O(self, Q1, Q2, C):
         Q1min = []

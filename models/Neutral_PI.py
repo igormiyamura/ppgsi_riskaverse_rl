@@ -14,6 +14,7 @@ class Neutral_PI:
         
         self._river_flow = river_flow
         self._num_actions = num_actions
+        self._goal_state = self.env._goal_state
         
         self._transition_probabilities = transition_probabilities
         self._costs = costs
@@ -26,27 +27,15 @@ class Neutral_PI:
         self._i = 0
     
     def __repr__(self):
-        self.viz_tools.visualize_V(self, self.V, self._grid_size, 4, self._goal_state, self._i, 
-                               str_title=f'Policy Iteration')
+        if self._env_name == 'RiverProblem':
+            self.viz_tools.visualize_V(self, self.V, self._grid_size, 4, self._goal_state, self._i, 
+                                str_title=f'Policy Iteration')
+            
+            return f'RiverProblem - \n' + \
+                f'Discount Factor: {self._discount_factor} \n' + \
+                f'Epsilon: {self._epsilon} \n'
+        return None
         
-        return f'RiverProblem - \n' + \
-            f'Discount Factor: {self._discount_factor} \n' + \
-            f'Epsilon: {self._epsilon} \n'
-    
-    # def _build_PI0(self, random=True):
-    #     PI0 = {}
-    #     for r in range(0, self._rows):
-    #         for c in range(0, self._cols):
-    #             PI0[(r, c)] = self._get_random_action() if random else 0
-    #     return PI0
-    
-    # def _build_V0(self):
-    #     V0 = {}
-    #     for r in range(0, self._rows):
-    #         for c in range(0, self._cols):
-    #             V0[(r, c)] = 0
-    #     return V0
-    
     def _get_random_action(self):
         return int(random.choice([i for i in range(0, self._num_actions)]))
         
@@ -86,20 +75,20 @@ class Neutral_PI:
         return (x, y)
         
     def run_converge(self):
-        start_time = time.time()
 
         while(self._first_run or (self.PI != self.PI_ANT)):
             print(f'Iteração: {self._i}', end='\r')
-            self.step()
+            V, PI = self.step()
             
             self._first_run = False
             self._i += 1
             
-        return self._i, (time.time() - start_time)
+        return self._i, V, PI
         
     def step(self):
         self.policy_evaluation()
         self.policy_improvement()
+        return self.V, self.PI
     
     def policy_evaluation(self):
         V, V_ANT, i = {}, self.V.copy(), 0

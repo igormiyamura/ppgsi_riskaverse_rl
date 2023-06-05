@@ -23,14 +23,17 @@ class Neutral_VI:
         self.V = env._build_V0(initial_value=0)
         self.PI = env._build_PI0(initial_value=-1)
     
-    # def __repr__(self):
-    #     self.viz_tools.visualize_V(self, self.V, self._grid_size, 4, self._goal_state, 0, 
-    #                            str_title=f'Policy Iteration')
+    def __repr__(self):
+        if self._env_name == 'RiverProblem':
+            self.viz_tools.visualize_V(self, self.V, self._grid_size, 4, self._goal_state, 0, 
+                                str_title=f'Policy Iteration')
+            
+            return f'{self.env._env_name} - \n' + \
+                f'Discount Factor: {self._discount_factor} \n' + \
+                f'Epsilon: {self._epsilon} \n'
+        else:
+            return None
         
-    #     return f'{self.env._env_name} - \n' + \
-    #         f'Discount Factor: {self._discount_factor} \n' + \
-    #         f'Epsilon: {self._epsilon} \n'
-    
     def _reward_function(self, S, action):
         if self._env_name == 'DrivingLicense':
             if S == 'sG': return 0
@@ -88,7 +91,7 @@ class Neutral_VI:
         
         self.V = V
         self.PI = PI
-        return self.V
+        return self.V, self.PI
     
     def run_converge(self):
         start_time = time.time()
@@ -101,7 +104,7 @@ class Neutral_VI:
 
             V_k = [i[1] for i in self.V.items()]
 
-            self.step()
+            V, PI = self.step()
             V_k1 = [i[1] for i in self.V.items()]
             
             qtd_iteracoes += 1
@@ -109,5 +112,4 @@ class Neutral_VI:
             if self.verify_residual(V_k1, V_k):
                 break
             
-        return qtd_iteracoes, (time.time() - start_time)
-    
+        return qtd_iteracoes, V, PI

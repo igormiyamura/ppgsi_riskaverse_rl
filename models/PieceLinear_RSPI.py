@@ -138,8 +138,6 @@ class PieceLinear_RSPI:
         return (x, y)
         
     def run_converge(self):
-        start_time = time.time()
-
         while(self._first_run or (self.PI != self.PI_ANT)):
             print(f'Iteração: {self._i}', end='\r')
             self.step()
@@ -147,7 +145,7 @@ class PieceLinear_RSPI:
             self._first_run = False
             self._i += 1
             
-        return self._i, (time.time() - start_time)
+        return self._i, self.V, self.PI
         
     def step(self):
         self.policy_evaluation()

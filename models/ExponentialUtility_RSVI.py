@@ -2,13 +2,14 @@
 import numpy as np, random, copy, time
 import rl_utils.UtilFunctions as uf
 
+from models.Neutral_VI import Neutral_VI
 from rl_utils.VizTools import VizTools
 from services.ErrorMetrics import ErrorMetrics
 from services.ExponentialFunctions import ExponentialFunctions
 
 class ExponentialUtility_RSVI:
     def __init__(self, env, transition_probabilities, costs, 
-                 vl_lambda, num_actions=4, epsilon=0.001, river_flow=None, QUIET=True) -> None:
+                 vl_lambda, num_actions=4, epsilon=0.001, river_flow=None, discount_factor=0.99, QUIET=True) -> None:
         self.viz_tools = VizTools()
         self.env = env
         
@@ -21,6 +22,7 @@ class ExponentialUtility_RSVI:
         self._transition_probabilities = transition_probabilities
         self._costs = costs
         self._epsilon = epsilon
+        self._discount_factor = discount_factor
         self._goal_state = env._goal_state
         
         self.PI = self.env._build_PI0(initial_value=0)
@@ -71,10 +73,18 @@ class ExponentialUtility_RSVI:
         return reward
     
     def run_converge(self):
-        start_time = time.time()
-        self.calculate_value()
+        if self._lambda == 0:
+            self.N_VI = Neutral_VI(self.env, self._transition_probabilities, self._costs, 
+                 self._num_actions, discount_factor=self._discount_factor, epsilon=self._epsilon, river_flow=self._river_flow)
+            i, V, PI = self.N_VI.run_converge()
+            
+            self._i = i
+            self.V = V
+            self.PI = PI
+        else:
+            V, PI = self.calculate_value()
         
-        return self._i, (time.time() - start_time)
+        return self._i, V, PI
                 
     def calculate_value(self):
         while True:
@@ -114,6 +124,8 @@ class ExponentialUtility_RSVI:
                 self.Qi[S][a] = np.exp(self._lambda * C) * sum(q)
                     
             self.PI[S] = min(self.Qi[S], key=self.Qi[S].get)
+            
+        return self.V, self.PI
             
     def calculate_value_for_policy(self, Pi, vl_lambda):
         i = 0

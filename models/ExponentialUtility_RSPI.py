@@ -2,6 +2,7 @@
 import numpy as np, random, copy, math, time
 import rl_utils.UtilFunctions as uf
 
+from models.Neutral_PI import Neutral_PI
 from rl_utils.VizTools import VizTools
 from services.ErrorMetrics import ErrorMetrics
 from services.ExponentialFunctions import ExponentialFunctions
@@ -9,7 +10,7 @@ from services.ExponentialFunctions import ExponentialFunctions
 class ExponentialUtility_RSPI:
     def __init__(self, env, transition_probabilities, costs, 
                  vl_lambda, num_actions=4, epsilon=0.001, river_flow=None, certainty_equivalent=False, 
-                 explogsum=False, threshold=1000, QUIET=True) -> None:
+                 explogsum=False, threshold=1000, discount_factor=0.99, QUIET=True) -> None:
         self.viz_tools = VizTools()
         self.env = env
         
@@ -22,6 +23,7 @@ class ExponentialUtility_RSPI:
         self._transition_probabilities = transition_probabilities
         self._costs = costs
         self._epsilon = epsilon
+        self._discount_factor = discount_factor
         self._threshold = threshold
         
         self._certainty_equivalent = certainty_equivalent
@@ -39,12 +41,15 @@ class ExponentialUtility_RSPI:
         self.EF = ExponentialFunctions()
         
     def __repr__(self):
-        self.viz_tools.visualize_V(self, self.V, self.env._grid_size, 4, self._goal_state, self._i, 
-                               str_title=f'Exponential Utility Function - RSMDP - Lambda {self._lambda}')
-        
-        return f'RiverProblem - \n' + \
-            f'Lambda: {self._lambda} \n' + \
-            f'Epsilon: {self._epsilon} \n'
+        if self._env_name == 'RiverProblem':
+            self.viz_tools.visualize_V(self, self.V, self.env._grid_size, 4, self._goal_state, self._i, 
+                                str_title=f'Exponential Utility Function - RSMDP - Lambda {self._lambda}')
+            
+            return f'RiverProblem - \n' + \
+                f'Lambda: {self._lambda} \n' + \
+                f'Epsilon: {self._epsilon} \n'
+        else:
+            return None
     
     def _define_initial_value_V0(self):
         if self._env_name == 'DrivingLicense': return np.sign(self._lambda)
@@ -71,19 +76,28 @@ class ExponentialUtility_RSPI:
         return reward
     
     def run_converge(self):
-        start_time = time.time()
-
-        while(self._first_run or (self.PI != self.PI_ANT) and self._i < self._threshold):
-            self.step()
+        if self._lambda == 0:
+            self.N_PI = Neutral_PI(self.env, self._transition_probabilities, self._costs, 
+                 num_actions=self._num_actions, discount_factor=self._discount_factor, epsilon=self._epsilon, river_flow=self._river_flow)
+            i, V, PI = self.N_PI.run_converge()
             
-            self._first_run = False
-            self._i += 1
+            self._i = i
+            self.V = V
+            self.PI = PI
+        else:
+            while(self._first_run or (self.PI != self.PI_ANT) and self._i < self._threshold):
+                V, PI = self.step()
+                
+                self._first_run = False
+                self._i += 1
             
-        return self._i, (time.time() - start_time)
+        return self._i, V, PI
         
     def step(self):
         self.policy_evaluation()
         self.policy_improvement()
+        
+        return self.V, self.PI
     
     def policy_evaluation(self):
         i = 0

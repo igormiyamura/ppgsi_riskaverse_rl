@@ -35,7 +35,7 @@ class Neutral_VI:
             return None
         
     def _reward_function(self, S, action):
-        if self._env_name == 'DrivingLicense':
+        if self._env_name == 'DrivingLicense' or self._env_name == 'SimpleMDP':
             if S == 'sG': return 0
         
         reward = self._costs[action]
@@ -48,7 +48,7 @@ class Neutral_VI:
         return reward
     
     def _get_transition(self, S, a):
-        if self._env_name == 'DrivingLicense': transition_matrix = self._transition_probabilities[S][a]
+        if self._env_name == 'DrivingLicense' or self._env_name == 'SimpleMDP': transition_matrix = self._transition_probabilities[S][a]
         elif self._env_name == 'RiverProblem': transition_matrix = self._transition_probabilities[a][S]
         t = np.array([v[1] for v in transition_matrix.items()])
         return t

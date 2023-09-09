@@ -10,7 +10,7 @@ from services.ExponentialFunctions import ExponentialFunctions
 class ExponentialUtility_RSPI:
     def __init__(self, env, transition_probabilities, costs, 
                  vl_lambda, num_actions=4, epsilon=0.001, river_flow=None, certainty_equivalent=False, 
-                 explogsum=False, threshold=1000, discount_factor=0.99, QUIET=True) -> None:
+                 explogsum=False, threshold=100, discount_factor=0.99, QUIET=True) -> None:
         self.viz_tools = VizTools()
         self.env = env
         

@@ -33,6 +33,9 @@ class ExponentialUtility_RSVI:
         self._i = 0
         self.QUIET = QUIET
         
+        # Guardando informação de convergencia
+        self._inicia_historico_calculo()
+        
         # Instanciando objetos
         self.EM = ErrorMetrics(self._epsilon)
         self.EF = ExponentialFunctions()
@@ -48,19 +51,43 @@ class ExponentialUtility_RSVI:
         else:
             return ''
     
+    def _inicia_historico_calculo(self):
+        self._hist_custo = {}
+        self._hist_probabilty = {}
+        self._hist_s0 = {}
+        self._hist_G = {}
+        self._policy_value = {}
+        
+        for S in self.V.keys():
+            self._hist_custo[S] = {}
+            self._hist_probabilty[S] = {}
+            self._hist_s0[S] = {}
+            self._hist_G[S] = {}
+            self._policy_value[S] = {}
+            for a in range(self._num_actions):
+                self._hist_custo[S][a] = []
+                self._hist_probabilty[S][a] = []
+                self._hist_s0[S][a] = []
+                self._hist_G[S][a] = []
+                self._policy_value[S][a] = []
+                
+        return True
+    
     def _define_initial_value_V0(self):
         if self._env_name == 'DrivingLicense': return np.sign(self._lambda)
         elif self._env_name == 'RiverProblem': return np.sign(self._lambda)
-        else: return 0
+        else: return np.sign(self._lambda)
     
     def _get_transition(self, S, a):
         if self._env_name == 'DrivingLicense': transition_matrix = self._transition_probabilities[S][a]
         elif self._env_name == 'RiverProblem': transition_matrix = self._transition_probabilities[a][S]
+        else: transition_matrix = self._transition_probabilities[S][a]
+        
         t = uf._get_values_from_dict(transition_matrix)
         return t    
         
     def _cost_function(self, S, action):
-        if self._env_name == 'DrivingLicense':
+        if self._env_name == 'DrivingLicense' or self._env_name == 'SimpleMDP':
             if S == 'sG': return 0
         
         reward = self._costs[action]
@@ -87,7 +114,7 @@ class ExponentialUtility_RSVI:
         return self._i, V, PI
                 
     def calculate_value(self):
-        while True:
+        while True and self._i < self._threshold:
             new_V = {}
             
             for S in self.V.keys():
@@ -95,7 +122,7 @@ class ExponentialUtility_RSVI:
                 
                 for a in range(self._num_actions):
                     V = uf._get_values_from_dict(self.V)
-                    T = self._get_transition(S, a) # uf._get_values_from_dict(self._transition_probabilities[a][S])
+                    T = self._get_transition(S, a)
                     
                     TV = T * V
                     C = self._cost_function(S, a)
@@ -104,7 +131,13 @@ class ExponentialUtility_RSVI:
                     b.append(bellman)
                     
                     if not self.QUIET: print(f'b: {b} | TV: {TV} | C: {C} | Lambda: {self._lambda}')
-                
+
+                    self._hist_custo[S][a].append(self.EF._utility(C, self._lambda))
+                    self._hist_probabilty[S][a].append(sum(TV))
+                    self._hist_s0[S][a].append(self.EF._utility(C, self._lambda) * T[0] * V[0])
+                    self._hist_G[S][a].append(self.EF._utility(C, self._lambda) * T[1] * V[1])
+                    self._policy_value[S][a].append(bellman)
+                    
                 if S == self._goal_state:
                     new_V[S] = np.sign(self._lambda)
                 else:

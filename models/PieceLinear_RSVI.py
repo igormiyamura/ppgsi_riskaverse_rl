@@ -26,6 +26,8 @@ class PieceLinear_RSVI:
         self.Qi = self.env._build_Q0(initial_value=0)
         self.PI = self.env._build_PI0(initial_value=0)
         
+        self._inicia_historico_calculo()
+        
     def __repr__(self):
         if self._env_name == 'RiverProblem':
             self.viz_tools.visualize_V(self, self.V, self.env._grid_size, 4, self.env._goal_state, self._i, 
@@ -37,6 +39,28 @@ class PieceLinear_RSVI:
         else:
             return ''
             
+    def _inicia_historico_calculo(self):
+        self._hist_custo = {}
+        self._hist_probabilty = {}
+        self._hist_s0 = {}
+        self._hist_G = {}
+        self._policy_value = {}
+        
+        for S in self.V.keys():
+            self._hist_custo[S] = {}
+            self._hist_probabilty[S] = {}
+            self._hist_s0[S] = {}
+            self._hist_G[S] = {}
+            self._policy_value[S] = {}
+            for a in range(self._num_actions):
+                self._hist_custo[S][a] = []
+                self._hist_probabilty[S][a] = []
+                self._hist_s0[S][a] = []
+                self._hist_G[S][a] = []
+                self._policy_value[S][a] = []
+                
+        return True
+        
     def _verify_alpha(self):
         if (self._alpha <= 0) or (self._alpha > (1 + abs(self._k)) ** (-1)): raise Exception(f'Valor de alpha [{self._alpha}] inválido.')
     
@@ -54,7 +78,7 @@ class PieceLinear_RSVI:
             return (1 - self._k) * x if x < 0 else (1 + self._k) * x
         
     def _reward_function(self, S, action):
-        if self._env_name == 'DrivingLicense':
+        if self._env_name == 'DrivingLicense' or self._env_name == 'SimpleMDP':
             if S == 'sG': return 0
         
         reward = self._costs[action]
@@ -67,7 +91,7 @@ class PieceLinear_RSVI:
         return reward
     
     def _get_transition(self, S, a, S_Next):
-        if self._env_name == 'DrivingLicense': transition_matrix = self._transition_probabilities[S][a]
+        if self._env_name == 'DrivingLicense' or self._env_name == 'SimpleMDP': transition_matrix = self._transition_probabilities[S][a]
         elif self._env_name == 'RiverProblem': transition_matrix = self._transition_probabilities[a][S]
         
         return transition_matrix[S_Next]
@@ -114,6 +138,10 @@ class PieceLinear_RSVI:
                         q += self._get_transition(S, a, S_next) * self.function_O(Qi1[S_next], Qi1[S][a], C)
 
                     self.Qi[S][a] = Qi1[S][a] + self._alpha * q
+                    self._hist_custo[S][a].append(self._alpha * q)
+                    self._hist_probabilty[S][a].append(Qi1[S][a])
+                    
+                    self._policy_value[S][a].append(self.Qi[S][a])
                     
                     # print(f'S: [{S}] / Qi[S]: [{Qi1[S]}] / C: [{C}] / Qp: [{self.Qi[S][a]}] / q: [{q}]')
                     
@@ -185,7 +213,7 @@ class PieceLinear_RSVI:
                 O = self.single_function_O(self._get_values_from_dict(V), V[S], C)
                 
                 if self._env_name == 'RiverProblem': T = self._get_values_from_dict(self._transition_probabilities[a][S])
-                elif self._env_name == 'DrivingLicense': T = self._get_values_from_dict(self._transition_probabilities[S][a])
+                elif self._env_name == 'DrivingLicense' or self._env_name == 'SimpleMDP': T = self._get_values_from_dict(self._transition_probabilities[S][a])
                 # print(f'~ DEBUG - O: [{O}] / T: [{T}]')
                 q = sum(T * O)
 

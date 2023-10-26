@@ -18,6 +18,14 @@ def run_driving_license(dl, T, C, actions, model, model_name, **kwargs):
         k, alpha, gamma, epsilon = kwargs['k'], kwargs['alpha'], kwargs['gamma'], kwargs['epsilon']
         rdl = model(dl, T, C, k=k, alpha=alpha, gamma=gamma,
                          num_actions=actions, epsilon=epsilon)
+    elif model_name == 'LinearUF_RSVI':
+        slope, epsilon = kwargs['vl_slope'], kwargs['epsilon']
+        rdl = model(dl, T, C, vl_slope=slope,
+                         num_actions=actions, epsilon=epsilon)
+    elif model_name == 'QuadraticUF_RSVI':
+        slope1, slope2, epsilon = kwargs['vl_slope1'], kwargs['vl_slope2'], kwargs['epsilon']
+        rdl = model(dl, T, C, vl_slope1=slope1, vl_slope2=slope2,
+                         num_actions=actions, epsilon=epsilon)
     
     if 'PI' in kwargs:
         acc_costs = rdl.calculate_value_for_policy(kwargs['PI'], 0)
